@@ -25,7 +25,7 @@ netName="default"
 netPath="/tmp/$netName.xml"
 
 # Storage Vars
-DiskSize="256G"
+DefaultDiskSize="128"
 DiskPath="/etc/sGPUpt/qemu-images"
 ISOPath="/etc/sGPUpt/iso/"
 #DiskPath=/home/$SUDO_USER/Documents/qemu-images
@@ -643,7 +643,13 @@ function CreateVM()
   if [[ ! -e $DiskPath/$VMName.qcow2 ]]; then
     read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Do you want to create a drive named ${YELLOW}${VMName}${DEFAULT}")? [y/N]: " CHOICE
     if [[ $CHOICE == @("y"|"Y") ]]; then
-      qemu-img create -f qcow2 $DiskPath/$VMName.qcow2 $DiskSize >> $logFile 2>&1
+      read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Size of disk?") [GB]: " DiskSize
+      if [[ ! $DiskSize =~ ^[0-9]+$ ]] || (( $DiskSize < 1 )); then
+        echo -e "Default"
+        DiskSize=$DefaultDiskSize
+      fi
+
+      qemu-img create -f qcow2 $DiskPath/$VMName.qcow2 ${DiskSize}G >> $logFile 2>&1
       chown $SUDO_USER:$groupName $DiskPath/$VMName.qcow2 >> $logFile 2>&1
       includeDrive="1"
     fi
@@ -658,7 +664,7 @@ function CreateVM()
 
   case $SysType in
     AMD)    CPUFeatures="hv_vendor_id=AuthenticAMD,-x2apic,+svm,+invtsc,+topoext" ;;
-    Intel)  CPUFeatures="hv_vendor_id=GenuineIntel,-x2apic,+vmx,+invtsc" ;;
+    Intel)  CPUFeatures="hv_vendor_id=GenuineIntel,-x2apic,+vmx" ;;
   esac
 
   OVMF_CODE="/etc/sGPUpt/OVMF_CODE.fd"
