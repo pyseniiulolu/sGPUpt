@@ -662,7 +662,7 @@ function CreateVM()
   Emulator="/etc/sGPUpt/qemu-system-x86_64"
   cp $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_VARS.fd $OVMF_VARS
 
-  echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Creating VM [ Type:${YELLOW}\"$SysType${YELLOW}\"${DEFAULT}, Name:${YELLOW}\"$VMName\"${DEFAULT}, vCPU:${YELLOW}\"$vCPU\"${DEFAULT}, Mem:${YELLOW}\"$vMem"\M"\"${DEFAULT}, Disk:${YELLOW}\"$DiskSize\"${DEFAULT}, QEMU-V:${YELLOW}\"$vQEMU\"${DEFAULT} ]"
+  echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Creating VM [ Type:${YELLOW}\"$SysType${YELLOW}\"${DEFAULT}, Name:${YELLOW}\"$VMName\"${DEFAULT}, vCPU:${YELLOW}\"$vCPU\"${DEFAULT}, Mem:${YELLOW}\"$vMem"\M"\"${DEFAULT}, Disk:${YELLOW}\"${DiskSize}G\"${DEFAULT}, QEMU-V:${YELLOW}\"$vQEMU\"${DEFAULT} ]"
 
   virt-install \
   --connect qemu:///system \
