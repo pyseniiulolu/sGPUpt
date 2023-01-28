@@ -389,10 +389,10 @@ function QuerySysInfo()
 # LOG THE RESULTS TO THE $logFile
   for (( i=0; i<${#aUSB[@]}; i++ )); do
     if (( $i == 0 )); then
-      debugUSB="\"$(echo ${aUSB[$i]} | tr :. _ | tr -d ' ')\""
+      debugUSB="\"$(echo ${aUSB[$i]} | tr -d ' ')\""
       debugUSBc="\"$(echo ${aUSB[$i]} | tr :. _ | tr -d ' ')\""
     else
-      debugUSB="$debugUSB,\"$(echo ${aUSB[$i]} | tr :. _ | tr -d ' ')\""
+      debugUSB="$debugUSB,\"$(echo ${aUSB[$i]} | tr -d ' ')\""
       debugUSBc="$debugUSBc,\"$(echo ${aUSB[$i]} | tr :. _ | tr -d ' ')\""
     fi
   done
@@ -418,7 +418,7 @@ echo -e "[\"Query Result\"]
 
     \"PCI\":[
     {
-      \"GPU Name\":\"$GPUName\",
+      \"GPU Name\":\"$(echo -e $GPUName | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g")\",
       \"GPU Video\":\"$GPUVideo\",
       \"GPU Audio\":\"$GPUAudio\",
       \"USB IDs\": [ $debugUSB ]
