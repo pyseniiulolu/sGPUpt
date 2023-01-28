@@ -1,4 +1,6 @@
 #!/bin/bash
+LANG=en_US.UTF-8
+
 PURPLE='\033[0;35m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
