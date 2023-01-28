@@ -643,22 +643,12 @@ function CreateVM()
   if [[ ! -e $DiskPath/$VMName.qcow2 ]]; then
     read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Do you want to create a drive named ${YELLOW}${VMName}${DEFAULT}")? [y/N]: " CHOICE
     if [[ $CHOICE == @("y"|"Y") ]]; then
-      read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Size of disk?") [GB]: " DiskSize
-      if [[ ! $DiskSize =~ ^[0-9]+$ ]] || (( $DiskSize < 1 )); then
-        echo -e "Default"
-        DiskSize=$DefaultDiskSize
-      fi
-
-      qemu-img create -f qcow2 $DiskPath/$VMName.qcow2 ${DiskSize}G >> $logFile 2>&1
-      chown $SUDO_USER:$groupName $DiskPath/$VMName.qcow2 >> $logFile 2>&1
-      includeDrive="1"
+      HandleDisk
     fi
   else
     read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Do you want to ${RED}overwrite${DEFAULT} a drive named ${YELLOW}${VMName}${DEFAULT}")? [y/N]: " CHOICE
     if [[ $CHOICE == @("y"|"Y") ]]; then
-      qemu-img create -f qcow2 $DiskPath/$VMName.qcow2 $DiskSize >> $logFile 2>&1
-      chown $SUDO_USER:$groupName $DiskPath/$VMName.qcow2 >> $logFile 2>&1
-      includeDrive="1"
+      HandleDisk
     fi
   fi
 
@@ -714,6 +704,19 @@ function CreateVM()
   InsertUSB
 
   echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Finished creating ${YELLOW}$VMName${DEFAULT}!"
+}
+
+function HandleDisk()
+{
+  read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Size of disk?") [GB]: " DiskSize
+  if [[ ! $DiskSize =~ ^[0-9]+$ ]] || (( $DiskSize < 1 )); then
+    echo -e "Default"
+    DiskSize=$DefaultDiskSize
+  fi
+
+  qemu-img create -f qcow2 $DiskPath/$VMName.qcow2 ${DiskSize}G >> $logFile 2>&1
+  chown $SUDO_USER:$groupName $DiskPath/$VMName.qcow2 >> $logFile 2>&1
+  includeDrive="1"
 }
 
 function InsertSpoofedBoard()
