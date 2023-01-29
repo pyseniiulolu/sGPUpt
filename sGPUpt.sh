@@ -1,6 +1,10 @@
 #!/bin/bash
 LANG=en_US.UTF-8
 
+version=0.1.0
+author=lexi-src
+tool=sGPUpt
+
 PURPLE='\033[0;35m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
@@ -47,36 +51,62 @@ edkDir="/etc/sGPUpt/edk-compile"
 
 logFile="/home/$SUDO_USER/Desktop/sGPUpt.log"
 
+function footer(){
+  url="https://github.com/$author/$tool/issues"
+  printf "\n"
+  printf "#%.0s" {1..61}
+  printf "\n# ♥ %s ♥%30s #\n" "$tool made by $author"
+  printf "# Report issues @ %s #" "$url"
+  printf "\n"
+  printf "#%.0s" {1..61}
+  printf "\n"
+}
+function logger(){
+  pref="[sGPUpt]"
+  case "$1" in
+    success)
+      flag=INFO
+      col=GREEN
+      ;;
+    info)
+      flag=INFO
+      col=YELLOW
+      ;;
+    warn)
+      flag=WARN
+      col=YELLOW
+      ;;
+    error)
+      flag=ERROR
+      col=RED
+      ;;
+  esac
+  printf "%s${!col}[%s]${DEFAULT} %s\n" "$pref" $flag "$2"
+  case "$1" in
+    warn|error)
+	    footer
+	    exit 1
+	    ;;
+  esac
+}
+
 function main()
 {
   if [[ ! $(whoami) = "root" ]]; then
-    echo -e "${BLINKYELLOW}! ${RED}This script requires root privileges!${DEFAULT}"
-    exit 0
+    logger error "This script requires root privileges!"
   elif [[ -z $VMName ]] || [[ -z $GPUType ]] || [[ $GPUType != @("NVIDIA"|"AMD") ]]; then
-    echo -e "${CYAN}usage:${YELLOW} >> ${GREEN}sudo ./sGPUpt.sh \"{VM-Name}\" {NVIDIA|AMD}${DEFAULT}\n"
-    exit 0
+    logger error "Usage: sudo ./sGPUpt.sh \"{VM-Name}\" <NVIDIA|AMD>"
   elif [[ $VMName = *" "* ]]; then
-    echo -e "${BLINKYELLOW}! ${DEFAULT}${YELLOW}Your machines name cannot contain ${DEFAULT}'${RED} ${DEFAULT}'"
-    exit 0
+    logger error "Your machine's name cannot contain the character: ' '"
   elif [[ $VMName = *"/"* ]]; then
-    echo -e "${BLINKYELLOW}! ${DEFAULT}${YELLOW}Your machines name cannot contain ${DEFAULT}'${RED}/${DEFAULT}'"
-    exit 0
+    logger error "Your machine's name cannot contain the character: '/'"
   elif [[ -z $(grep -E -m 1 "svm|vmx" /proc/cpuinfo) ]]; then
-    echo -e "${BLINKYELLOW}! ${DEFAULT}${RED}This system doesn't support virtualization, please enable it then run this script again!${DEFAULT}"
-    exit 0
+    logger error "This system doesn't support virtualization, please enable it then run this script again!"
   elif [[ ! -d /sys/firmware/efi ]]; then
-    echo -e "${BLINKYELLOW}! ${DEFAULT}${RED}This system isn't installed in UEFI mode!${DEFAULT}"
+    logger error "This system isn't installed in UEFI mode!"
   elif [[ -z $(ls -A /sys/class/iommu/) ]]; then
-    echo -e "${BLINKYELLOW}! ${DEFAULT}${RED}This system doesn't support IOMMU, please enable it then run this script again!${DEFAULT}"
-    exit 0
+    logger error "This system doesn't support IOMMU, please enable it then run this script again!"
   fi
-
-  echo -e "  ${CYAN}#############################################################${DEFAULT}"
-  echo -e "  ${CYAN}#${DEFAULT} \t\t\t\t\t\t\t      ${CYAN}#${DEFAULT}"
-  echo -e "  ${CYAN}#${DEFAULT} \t\t    ${RED}${BLINKRED}♥${DEFAULT}${PURPLE} sGPUpt${DEFAULT} made by ${PURPLE}lexi-src${DEFAULT} ${BLUE}${BLINKRED}♥${DEFAULT}\t\t      ${CYAN}#${DEFAULT}"
-  echo -e "  ${CYAN}#${DEFAULT} Report issues @ ${UNDERLINE}https://github.com/lexi-src/sGPUpt/issues${CYAN} #${DEFAULT}"
-  echo -e "  ${CYAN}#${DEFAULT} \t\t\t\t\t\t\t      ${CYAN}#${DEFAULT}"
-  echo -e "  ${CYAN}#############################################################${DEFAULT}\n"
 
   # Start logging
   > $logFile
@@ -91,8 +121,8 @@ function main()
   CreateVM
 
   # End Information
-  echo -e "\n${BLINKRED}*${DEFAULT} Add your desired OS then start your VM with ${BLUE}Virt Manager${DEFAULT} or ${BLUE}sudo virsh start $VMName${DEFAULT}"
-  
+  logger info "Add your desired OS, then start your VM with Virt Manager or 'sudo virsh start'"
+
   # NEEDED TO FIX DEBIAN-BASED DISTROS USING VIRT-MANAGER
   if [[ $firstInstall == "true" ]]; then
     read -p "A reboot is required for this distro, reboot now? [Y/n]: " CHOICE
@@ -111,24 +141,19 @@ function InstallPackages()
     yes | pacman -S --needed "qemu-base" "virt-manager" "virt-viewer" "dnsmasq" "vde2" "bridge-utils" "openbsd-netcat" "libguestfs" "swtpm" "git" "make" "ninja" "nasm" "iasl" "pkg-config" "spice-protocol" >> $logFile 2>&1
   elif [[ -e /etc/debian_version ]]; then
     if [[ $NAME == "Ubuntu" ]] && [[ $VERSION_ID != @("22.04"|"22.10") ]]; then
-      echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] This script is only verified to work on Ubuntu Versions ${YELLOW}22.04 & 22.10${DEFAULT}"
-      exit 0
+      logger error "This script is only verified to work on Ubuntu Versions 22.04 & 22.10"
     elif [[ $NAME == "Linux Mint" ]] && [[ $VERSION_ID != "21.1" ]]; then
-      echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] This script is only verified to work on Linux Mint Version ${YELLOW}21.1${DEFAULT}"
-      exit 0
+      logger error "This script is only verified to work on Linux Mint Version 21.1"
     elif [[ $NAME == "Pop!_OS" ]] && [[ $VERSION_ID != "22.04" ]]; then
-      echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] This script is only verified to work on Pop!_OS Version ${YELLOW}22.04${DEFAULT}"
-      exit 0
+      logger error "This script is only verified to work on Pop!_OS Version 22.04"
     fi
 
     apt install -y "qemu-kvm" "virt-manager" "virt-viewer" "libvirt-daemon-system" "libvirt-clients" "bridge-utils" "swtpm" "mesa-utils" "git" "ninja-build" "nasm" "iasl" "pkg-config" "libglib2.0-dev" "libpixman-1-dev" "meson" "build-essential" "uuid-dev" "python-is-python3" "libspice-protocol-dev" >> $logFile 2>&1
   elif [[ -e /etc/system-release ]]; then
     if [[ $NAME == "AlmaLinux" ]] && [[ $VERSION_ID != "9.1" ]]; then
-      echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] This script is only verified to work on AlmaLinux Version ${YELLOW}9.1${DEFAULT}"
-      exit 0
+      logger error "This script is only verified to work on AlmaLinux Version 9.1"
     elif [[ $NAME =~ "Fedora" ]] && [[ $VERSION_ID != @("36"|"37") ]]; then
-      echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] This script is only verified to work on Fedora Versions ${YELLOW}36 & 37${DEFAULT}"
-      exit 0
+      logger error "This script is only verified to work on Fedora Versions 36 & 37"
     fi
 
     if [[ $NAME == "AlmaLinux" ]]; then
@@ -137,8 +162,7 @@ function InstallPackages()
       dnf install -y "qemu-kvm" "virt-manager" "virt-viewer" "virt-install" "libvirt-daemon-config-network" "libvirt-daemon-kvm" "swtpm" "g++" "ninja-build" "nasm" "iasl" "libuuid-devel" "glib2-devel" "pixman-devel" "spice-protocol" "spice-server-devel" >> $logFile 2>&1
     fi
   else
-    echo -e "${BLINKYELLOW}! ${DEFAULT}${RED}Cannot find distro!${DEFAULT}"
-    exit 0
+    logger error "Cannot find distro!"
   fi
 
   # Fedora and Alma don't have libvirt-qemu for some reason?
@@ -155,7 +179,7 @@ function InstallPackages()
 
   # Download VirtIO Drivers
   if [[ ! -e $ISOPath/virtio-win.iso ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Downloading VirtIO Drivers ISO..."
+    logger info "Downloading VirtIO Drivers ISO..."
     wget -P $ISOPath https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso 2>&1 | grep -i "error" >> $logFile 2>&1
   fi
 }
@@ -172,7 +196,7 @@ function SecurityChecks()
   # Disable AppArmor
   if [[ $NAME == @("Ubuntu"|"Pop!_OS"|"Linux Mint") ]] && [[ ! -e /etc/apparmor.d/disable/usr.sbin.libvirtd ]]; then
     firstInstall="true" # NEEDED TO FIX DEBIAN-BASED DISTROS USING VIRT-MANAGER
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Disabling AppArmor permanently for this distro"
+    logger info "Disabling AppArmor permanently for this distro"
     ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/ >> $logFile 2>&1
     apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd >> $logFile 2>&1
   fi
@@ -181,7 +205,7 @@ function SecurityChecks()
   if [[ $NAME =~ "Fedora" ]] || [[ $NAME == "AlmaLinux" ]]; then
     source /etc/selinux/config
     if [[ $SELINUX == "enforcing" ]]; then
-      echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Disabling SELinux permanently for this distro"
+      logger info "Disabling SELinux permanently for this distro"
       setenforce 0 >> $logFile 2>&1
       sed -i "s/SELINUX=enforcing/SELINUX=disabled/" /etc/selinux/config >> $logFile 2>&1
     fi
@@ -197,13 +221,13 @@ function CompileChecks()
 
   # Compile Spoofed QEMU & EDK2 OVMF
   if [[ ! -e $qemuDir/build/qemu-system-x86_64 ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Starting QEMU compile... please wait."
+    logger "Starting QEMU compile... please wait."
     echo 0 > /etc/sGPUpt/install-status.txt
     QemuCompile
   fi
 
   if [[ ! -e $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Starting EDK2 compile... please wait."
+    logger info "Starting EDK2 compile... please wait."
     EDK2Compile
   fi
 
@@ -217,14 +241,12 @@ function CompileChecks()
     ln -s $qemuDir/build/qemu-system-x86_64 /etc/sGPUpt/qemu-system-x86_64 >> $logFile 2>&1
   fi
 
-  # If both builds didn't succeed then don't exit
   if [[ ! -e $qemuDir/build/qemu-system-x86_64 ]] && [[ ! -e $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${RED}Failed to compile? Check the log file.${DEFAULT}"
-    exit 0
+    logger error "Failed to compile? Check the log file."
   fi
 
   if (( $(cat /etc/sGPUpt/install-status.txt) == 0 )); then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Finished compiling, installing compiled output..."
+    logger info "Finished compiling, installing compiled output..."
     cd $qemuDir >> $logFile 2>&1
     make install >> $logFile 2>&1 # may cause an issue ~ host compains about "Host does not support virtualization"
     echo 1 > /etc/sGPUpt/install-status.txt
@@ -575,13 +597,13 @@ function SetupLibvirt()
   # If group doesn't exist then create it
   if [[ -z $(getent group libvirt) ]]; then
     groupadd libvirt >> $logFile 2>&1
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Created libvirt group"
+    logger info "Created libvirt group"
   fi
 
   # If either user isn't in the group then add all of them again
   if [[ -z $(groups $SUDO_USER | grep libvirt | grep kvm | grep input) ]]; then
     usermod -aG libvirt,kvm,input $SUDO_USER >> $logFile 2>&1
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Added user ${YELLOW}$SUDO_USER${DEFAULT} to groups ${YELLOW}libvirt,kvm,input${DEFAULT}"
+    logger info "Added user '$SUDO_USER' to groups 'libvirt,kvm,input'"
   fi
 
   # Allow users in group libvirt to use virt-manager /etc/libvirt/libvirtd.conf
@@ -622,7 +644,7 @@ function CreateVM()
 {
   # Overwrite protection for existing VM configurations
   if [[ -e /etc/libvirt/qemu/$VMName.xml ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Will not overwrite an existing VM Config!"
+    logger info "sGPUpt Will not overwrite an existing VM Config!"
     return
   fi
 
@@ -654,7 +676,7 @@ function CreateVM()
   Emulator="/etc/sGPUpt/qemu-system-x86_64"
   cp $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_VARS.fd $OVMF_VARS
 
-  echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Creating VM [ Type:${YELLOW}\"$SysType${YELLOW}\"${DEFAULT}, Name:${YELLOW}\"$VMName\"${DEFAULT}, vCPU:${YELLOW}\"$vCPU\"${DEFAULT}, Mem:${YELLOW}\"$vMem"\M"\"${DEFAULT}, Disk:${YELLOW}\"${DiskSize}G\"${DEFAULT}, QEMU-V:${YELLOW}\"$vQEMU\"${DEFAULT} ]"
+  logger info "Creating VM [ Type:\"$SysType\", Name:\"$VMName\", vCPU:\"$vCPU\", Mem:\"$vMem"\M"\", Disk:\"${DiskSize}G\", QEMU-V:\"$vQEMU\" ]"
 
   virt-install \
   --connect qemu:///system \
@@ -695,7 +717,7 @@ function CreateVM()
   InsertCPUPinning
   InsertUSB
 
-  echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Finished creating ${YELLOW}$VMName${DEFAULT}!"
+  logger success "Finished creating $VMName!"
 }
 
 function HandleDisk()
@@ -726,7 +748,7 @@ function InsertSpoofedBoard()
 
 function InsertCPUPinning()
 {
-  echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${YELLOW}$VMName${DEFAULT}: Adding CPU Pinning for [ ${RED}$CPUName${DEFAULT} ]..."
+  logger info "Adding CPU Pinning for [ $CPUName ]..."
   for (( i=0; i<$vCPU; i++ )); do
     virt-xml $VMName --edit --cputune="vcpupin$i.vcpu=$i,vcpupin$i.cpuset=${aCPU[$i]}" >> $logFile 2>&1
   done
@@ -734,7 +756,7 @@ function InsertCPUPinning()
 
 function InsertUSB()
 {
-  echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${YELLOW}$VMName${DEFAULT}: Adding all USB Controllers..."
+  logger info "Adding all USB Controllers...."
   for usb in ${aUSB[@]}; do
     virt-xml $VMName --add-device --host-device="pci_0000_$(echo $usb | tr :. _)" >> $logFile 2>&1
   done
