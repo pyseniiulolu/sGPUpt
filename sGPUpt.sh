@@ -134,7 +134,7 @@ function InstallPackages()
     if [[ $NAME == "AlmaLinux" ]]; then
       dnf --enablerepo=crb install -y "qemu-kvm" "virt-manager" "virt-viewer" "virt-install" "libvirt-daemon-config-network" "libvirt-daemon-kvm" "swtpm" "git" "make" "gcc" "g++" "ninja-build" "nasm" "iasl" "libuuid-devel" "glib2-devel" "pixman-devel" "spice-protocol" >> $logFile 2>&1
     elif [[ $NAME =~ "Fedora" ]]; then
-      dnf install -y "qemu-kvm" "virt-manager" "virt-viewer" "virt-install" "libvirt-daemon-config-network" "libvirt-daemon-kvm" "swtpm" "g++" "ninja-build" "nasm" "iasl" "libuuid-devel" "glib2-devel" "pixman-devel" "spice-protocol" >> $logFile 2>&1
+      dnf install -y "qemu-kvm" "virt-manager" "virt-viewer" "virt-install" "libvirt-daemon-config-network" "libvirt-daemon-kvm" "swtpm" "g++" "ninja-build" "nasm" "iasl" "libuuid-devel" "glib2-devel" "pixman-devel" "spice-protocol" "spice-server-devel" >> $logFile 2>&1
     fi
   else
     echo -e "${BLINKYELLOW}! ${DEFAULT}${RED}Cannot find distro!${DEFAULT}"
