@@ -170,7 +170,7 @@ function SecurityChecks()
   ############################################################################################
 
   # Disable AppArmor
-  if [[ $NAME == @("Ubuntu"|"Pop!_OS"|"Linux Mint") ]] && [[ ! -f /etc/apparmor.d/disable/usr.sbin.libvirtd ]]; then
+  if [[ $NAME == @("Ubuntu"|"Pop!_OS"|"Linux Mint") ]] && [[ ! -e /etc/apparmor.d/disable/usr.sbin.libvirtd ]]; then
     firstInstall="true" # NEEDED TO FIX DEBIAN-BASED DISTROS USING VIRT-MANAGER
     echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Disabling AppArmor permanently for this distro"
     ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/ >> $logFile 2>&1
@@ -208,12 +208,12 @@ function CompileChecks()
   fi
 
   # symlink for OVMF
-  if [[ ! -f /etc/sGPUpt/OVMF_CODE.fd ]]; then
+  if [[ ! -e /etc/sGPUpt/OVMF_CODE.fd ]]; then
     ln -s $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd /etc/sGPUpt/OVMF_CODE.fd >> $logFile 2>&1
   fi
 
   # symlink for QEMU
-  if [[ ! -f /etc/sGPUpt/qemu-system-x86_64 ]]; then
+  if [[ ! -e /etc/sGPUpt/qemu-system-x86_64 ]]; then
     ln -s $qemuDir/build/qemu-system-x86_64 /etc/sGPUpt/qemu-system-x86_64 >> $logFile 2>&1
   fi
 
@@ -290,8 +290,8 @@ function EDK2Compile()
 function QuerySysInfo()
 {
   # Base CPU Information
-  CPUBrand=$(grep -m 1 'vendor_id' /proc/cpuinfo | awk '{print $3}')
-  CPUName=$(grep -m 1 'model name' /proc/cpuinfo | cut -d':' -f2 | cut -c2- | awk '{printf $0}')
+  CPUBrand=$(grep -m 1 'vendor_id' /proc/cpuinfo | cut -c13-)
+  CPUName=$(grep -m 1 'model name' /proc/cpuinfo | cut -c14-)
 
   if [[ $CPUBrand == "AuthenticAMD" ]]; then
     SysType="AMD"
@@ -352,7 +352,7 @@ function QuerySysInfo()
   fi
 
   # Find all USB Controllers
-  aUSB=$(lspci | grep "USB controller" | awk '{printf $1 " "}')
+  aUSB=$(lspci | grep "USB" | awk '{printf $1 " "}' | head -c -1)
 
   # Stop the script if we don't have any USB on the system
   if [[ -z $aUSB ]]; then
@@ -361,7 +361,7 @@ function QuerySysInfo()
   fi
 
   # CPU topology
-  vThread=$(lscpu | grep "Thread(s) per core:" | awk '{print $4}')
+  vThread=$(lscpu | grep "Thread(s)" | awk '{print $4}')
   vCPU=$(($(nproc) - $vThread))
   vCore=$(($vCPU / $vThread))
 
@@ -389,17 +389,6 @@ function QuerySysInfo()
   cGPUVideo=$(echo $GPUVideo | tr :. _)
   cGPUAudio=$(echo $GPUAudio | tr :. _)
 
-# LOG THE RESULTS TO THE $logFile
-  for (( i=0; i<${#aUSB[@]}; i++ )); do
-    if (( $i == 0 )); then
-      debugUSB="\"$(echo ${aUSB[$i]} | tr -d ' ')\""
-      debugUSBc="\"$(echo ${aUSB[$i]} | tr :. _ | tr -d ' ')\""
-    else
-      debugUSB="$debugUSB,\"$(echo ${aUSB[$i]} | tr -d ' ')\""
-      debugUSBc="$debugUSBc,\"$(echo ${aUSB[$i]} | tr :. _ | tr -d ' ')\""
-    fi
-  done
-
 echo -e "[\"Query Result\"]
 {
   \"System Conf\":[
@@ -424,7 +413,7 @@ echo -e "[\"Query Result\"]
       \"GPU Name\":\"$(echo -e $GPUName | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g")\",
       \"GPU Video\":\"$GPUVideo\",
       \"GPU Audio\":\"$GPUAudio\",
-      \"USB IDs\": [ $debugUSB ]
+      \"USB IDs\": [ ${aUSB[@]} ]
     }],
   }],
 
@@ -436,7 +425,7 @@ echo -e "[\"Query Result\"]
     \"vMem\":\"$vMem\",
     \"Converted GPU Video\":\"$cGPUVideo\",
     \"Converted GPU Audio\":\"$cGPUAudio\",
-    \"USB IDs\": [ $debugUSBc ]
+    \"USB IDs\": [ $(echo ${aUSB[@]} | tr :. _) ]
   }]
 }\n" >> $logFile
 }
@@ -444,12 +433,12 @@ echo -e "[\"Query Result\"]
 function SetupHooks()
 {
   # If hooks aren't installed
-  if [[ ! -d /etc/libvirt/hooks/ ]]; then
+  if [[ ! -e /etc/libvirt/hooks/ ]]; then
     CreateHooks
   fi
 
   # Is this the first time we're creating hooks for this VM?
-  if [[ ! -d $pHookVM ]]; then
+  if [[ ! -e $pHookVM ]]; then
     echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Creating passthrough hooks..."
   else
     echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Recreating passthrough hooks..."
@@ -492,7 +481,7 @@ CreateHooks()
 function StartScript()
 {
   # Create begin hook for VM if it doesn't exist
-  if [[ ! -d $pHookVM/prepare/begin/ ]]; then
+  if [[ ! -e $pHookVM/prepare/begin/ ]]; then
     mkdir -p $pHookVM/prepare/begin/ >> $logFile 2>&1
     touch    $pHookVM/prepare/begin/start.sh >> $logFile 2>&1
   fi
@@ -521,7 +510,7 @@ function StartScript()
 function EndScript()
 {
   # Create release hook for VM if it doesn't exist
-  if [[ ! -d $pHookVM/release ]]; then
+  if [[ ! -e $pHookVM/release ]]; then
     mkdir -p $pHookVM/release/end/ >> $logFile 2>&1
     touch    $pHookVM/release/end/stop.sh >> $logFile 2>&1
   fi
