@@ -50,6 +50,7 @@ edkBranch="edk2-stable202211"
 edkDir="/etc/sGPUpt/edk-compile"
 
 logFile="/home/$SUDO_USER/Desktop/sGPUpt.log"
+tab="$(printf '\t')"
 
 function footer(){
   url="https://github.com/$author/$tool/issues"
@@ -481,23 +482,25 @@ CreateHooks()
   chmod +x $fHook >> $logFile 2>&1
 
   # https://github.com/PassthroughPOST/VFIO-Tools/blob/master/libvirt_hooks/qemu
-  echo -e "#!/bin/bash"                                                                       >> $fHook
-  echo -e "GUEST_NAME=\"\$1\""                                                                >> $fHook
-  echo -e "HOOK_NAME=\"\$2\""                                                                 >> $fHook
-  echo -e "STATE_NAME=\"\$3\""                                                                >> $fHook
-  echo -e "MISC=\"\${@:4}\"\n"                                                                >> $fHook
-  echo -e "BASEDIR=\"\$(dirname \$0)\""                                                       >> $fHook
-  echo -e "HOOKPATH=\"\$BASEDIR/qemu.d/\$GUEST_NAME/\$HOOK_NAME/\$STATE_NAME\"\n"             >> $fHook
-  echo -e "set -e\n"                                                                          >> $fHook
-  echo -e "if [ -f \"\$HOOKPATH\" ] && [ -s \"\$HOOKPATH\" ] && [ -x \"\$HOOKPATH\" ]; then"  >> $fHook
-  echo -e "  eval \\\"\$HOOKPATH\\\" \"\$@\""                                                 >> $fHook
-  echo -e "elif [ -d \"\$HOOKPATH\" ]; then"                                                  >> $fHook
-  echo -e "  while read file; do"                                                             >> $fHook
-  echo -e "    if [ ! -z \"\$file\" ]; then"                                                  >> $fHook
-  echo -e "      eval \\\"\$file\\\" \"\$@\""                                                 >> $fHook
-  echo -e "    fi"                                                                            >> $fHook
-  echo -e "  done <<< \"\$(find -L \"\$HOOKPATH\" -maxdepth 1 -type f -executable -print;)\"" >> $fHook
-  echo -e "fi"                                                                                >> $fHook
+	cat <<- 'DOC' >> $fHook
+	#!/bin/bash
+	GUEST_NAME="$1"
+	HOOK_NAME="$2"
+	STATE_NAME="$3"
+	MISC="${@:4}"
+	BASEDIR="$(dirname $0)"
+	HOOKPATH="$BASEDIR/qemu.d/$GUEST_NAME/$HOOK_NAME/$STATE_NAME"
+	set -e
+	if [ -f "$HOOKPATH" ] && [ -s "$HOOKPATH" ] && [ -x "$HOOKPATH" ]; then
+		eval "$HOOKPATH" "$@"
+	elif [ -d "$HOOKPATH" ]; then
+		while read file; do
+			if [ ! -z "$file" ]; then
+			eval "$file" "$@"
+			fi
+		done <<< "$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print;)"
+	fi
+	DOC
 }
 
 function StartScript()
@@ -508,25 +511,31 @@ function StartScript()
     touch    $pHookVM/prepare/begin/start.sh >> $logFile 2>&1
   fi
 
-  > $fHookStart
-  echo -e "#!/bin/bash"                                                                       >> $fHookStart
-  echo -e "set -x\n"                                                                          >> $fHookStart
-  echo -e "systemctl stop display-manager\n"                                                  >> $fHookStart
-  echo -e "for file in /sys/class/vtconsole/*; do"                                            >> $fHookStart
-  echo -e "  if (( \$(grep -c \"frame buffer\" \$file/name) == 1 )); then"                    >> $fHookStart
-  echo -e "    echo 0 > \$file/bind"                                                          >> $fHookStart
-  echo -e "  fi"                                                                              >> $fHookStart
-  echo -e "done\n"                                                                            >> $fHookStart
-  echo -e "echo efi-framebuffer.0 > /sys/bus/platform/drivers/efi-framebuffer/unbind"         >> $fHookStart
-  echo -e "virsh nodedev-detach pci_0000_$cGPUVideo"                                          >> $fHookStart
-  echo -e "virsh nodedev-detach pci_0000_$cGPUAudio"                                          >> $fHookStart
-  for usb in ${aUSB[@]}; do
-    echo -e "virsh nodedev-detach pci_0000_$(echo $usb | tr :. _)"                            >> $fHookStart
-  done
-  echo -e "\nmodprobe vfio-pci\n"                                                             >> $fHookStart
-  echo -e "systemctl set-property --runtime -- user.slice AllowedCPUs=$ReservedCPUs"          >> $fHookStart
-  echo -e "systemctl set-property --runtime -- system.slice AllowedCPUs=$ReservedCPUs"        >> $fHookStart
-  echo -e "systemctl set-property --runtime -- init.scope AllowedCPUs=$ReservedCPUs"          >> $fHookStart
+	cat <<- DOC >> $fHookStart
+	#!/bin/bash
+	set -x
+	systemctl stop display-manager
+	for file in /sys/class/vtconsole/*; do"
+		if (( \$(grep -c \"frame buffer\" \$file/name) == 1 )); then
+			echo 0 > \$file/bind
+		fi
+	done
+	echo efi-framebuffer.0 > /sys/bus/platform/drivers/efi-framebuffer/unbind
+	virsh nodedev-detach pci_0000_$cGPUVideo
+	virsh nodedev-detach pci_0000_$cGPUAudio
+	DOC
+
+	  for usb in ${aUSB[@]}; do
+	    echo -e "virsh nodedev-detach pci_0000_$(echo $usb | tr :. _)"
+	  done >> $fHookStart
+
+	cat <<- DOC >> $fHookStart
+
+	modprobe vfio-pci
+	systemctl set-property --runtime -- user.slice AllowedCPUs=$ReservedCPUs
+	systemctl set-property --runtime -- system.slice AllowedCPUs=$ReservedCPUs
+	systemctl set-property --runtime -- init.scope AllowedCPUs=$ReservedCPUs
+	DOC
 }
 
 function EndScript()
@@ -537,43 +546,50 @@ function EndScript()
     touch    $pHookVM/release/end/stop.sh >> $logFile 2>&1
   fi
 
-  > $fHookEnd
-  echo -e "#!/bin/bash"                                                                       >> $fHookEnd
-  echo -e "set -x\n"                                                                          >> $fHookEnd
-  echo -e "virsh nodedev-reattach pci_0000_$cGPUVideo"                                        >> $fHookEnd
-  echo -e "virsh nodedev-reattach pci_0000_$cGPUAudio"                                        >> $fHookEnd
+	cat <<- DOC >> $fHookEnd
+	#!/bin/bash
+	set -x
+	virsh nodedev-reattach pci_0000_$cGPUVideo
+	virsh nodedev-reattach pci_0000_$cGPUAudio
+	DOC
+
   for usb in ${aUSB[@]}; do
-    echo -e "virsh nodedev-reattach pci_0000_$(echo $usb | tr :. _)"                          >> $fHookEnd
-  done
-  echo -e "\nsystemctl start display-manager\n"                                               >> $fHookEnd
-  echo -e "for file in /sys/class/vtconsole/*; do"                                            >> $fHookEnd
-  echo -e "  if (( \$(grep -c \"frame buffer\" \$file/name) == 1 )); then"                    >> $fHookEnd
-  echo -e "    echo 1 > \$file/bind"                                                          >> $fHookEnd
-  echo -e "  fi"                                                                              >> $fHookEnd
-  echo -e "done\n"                                                                            >> $fHookEnd
-  echo -e "systemctl set-property --runtime -- user.slice AllowedCPUs=$AllCPUs"               >> $fHookEnd
-  echo -e "systemctl set-property --runtime -- system.slice AllowedCPUs=$AllCPUs"             >> $fHookEnd
-  echo -e "systemctl set-property --runtime -- init.scope AllowedCPUs=$AllCPUs"               >> $fHookEnd
+    echo -e "virsh nodedev-reattach pci_0000_$(echo $usb | tr :. _)"
+  done >> $fHookEnd
+
+	cat <<- DOC >> $fHookEnd
+	systemctl start display-manager
+	for file in /sys/class/vtconsole/*; do
+			if (( \$(grep -c "frame buffer" \$file/name) == 1 )); then
+				echo 1 > \$file/bind
+			fi
+		done
+	systemctl set-property --runtime -- user.slice AllowedCPUs=$AllCPUs
+	systemctl set-property --runtime -- system.slice AllowedCPUs=$AllCPUs
+	systemctl set-property --runtime -- init.scope AllowedCPUs=$AllCPUs
+	DOC
 }
 
 function vNetworkCheck()
 {
   # If '$netName' doesn't exist then create it!
   if [[ $(virsh net-autostart $netName 2>&1) = *"Network not found"* ]]; then
-    > $netPath
-    echo -e "<network>"                                                                       >> $netPath
-    echo -e "  <name>$netName</name>"                                                         >> $netPath
-    echo -e "  <forward mode=\"nat\">"                                                        >> $netPath
-    echo -e "    <nat>"                                                                       >> $netPath
-    echo -e "      <port start=\"1024\" end=\"65535\"/>"                                      >> $netPath
-    echo -e "    </nat>"                                                                      >> $netPath
-    echo -e "  </forward>"                                                                    >> $netPath
-    echo -e "  <ip address=\"192.168.122.1\" netmask=\"255.255.255.0\">"                      >> $netPath
-    echo -e "    <dhcp>"                                                                      >> $netPath
-    echo -e "      <range start=\"192.168.122.2\" end=\"192.168.122.254\"/>"                  >> $netPath
-    echo -e "    </dhcp>"                                                                     >> $netPath
-    echo -e "  </ip>"                                                                         >> $netPath
-    echo -e "</network>"                                                                      >> $netPath
+
+	cat <<- DOC >> $netPath
+	<network>
+		<name>$netName</name>
+		<forward mode="nat">
+			<nat>
+			  <port start="1024" end="65535"/>
+		</nat>
+	</forward>
+	<ip address=192.168.122.1 netmask=255.255.255.0>
+		<dhcp>
+		  <range start=192.168.122.2 end=192.168.122.254/>
+		</dhcp>
+		</ip>
+	</network>
+	DOC
 
     virsh net-define $netPath >> $logFile 2>&1
     rm $netPath >> $logFile 2>&1
