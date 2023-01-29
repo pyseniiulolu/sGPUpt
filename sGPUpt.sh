@@ -51,6 +51,7 @@ edkDir="/etc/sGPUpt/edk-compile"
 
 logFile="/home/$SUDO_USER/Desktop/sGPUpt.log"
 tab="$(printf '\t')"
+virtIO_url="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
 
 function footer(){
   url="https://github.com/$author/$tool/issues"
@@ -136,42 +137,126 @@ function main()
 function InstallPackages()
 {
   source /etc/os-release
+  arch_depends=(
+    "qemu-base"
+    "virt-manager"
+    "virt-viewer"
+    "dnsmasq"
+    "vde2"
+    "bridge-utils"
+    "openbsd-netcat"
+    "libguestfs"
+    "swtpm"
+    "git"
+    "make"
+    "ninja"
+    "nasm"
+    "iasl"
+    "pkg-config"
+    "spice-protocol"
+  )
+  alma_depends=(
+    "qemu-kvm"
+    "virt-manager"
+    "virt-viewer"
+    "virt-install"
+    "libvirt-daemon-config-network"
+    "libvirt-daemon-kvm"
+    "swtpm"
+    "git"
+    "make"
+    "gcc"
+    "g++"
+    "ninja-build"
+    "nasm"
+    "iasl"
+    "libuuid-devel"
+    "glib2-devel"
+    "pixman-devel"
+    "spice-protocol"
+  )
+  fedora_depends=(
+    "qemu-kvm"
+    "virt-manager"
+    "virt-viewer"
+    "virt-install"
+    "libvirt-daemon-config-network"
+    "libvirt-daemon-kvm"
+    "swtpm"
+    "g++"
+    "ninja-build"
+    "nasm"
+    "iasl"
+    "libuuid-devel"
+    "glib2-devel"
+    "pixman-devel"
+    "spice-protocol"
+    "spice-server-devel"
+  )
+  debian_depends=(
+    "qemu-kvm"
+    "virt-manager"
+    "virt-viewer"
+    "libvirt-daemon-system"
+    "libvirt-clients"
+    "bridge-utils"
+    "swtpm"
+    "mesa-utils"
+    "git"
+    "ninja-build"
+    "nasm"
+    "iasl"
+    "pkg-config"
+    "libglib2.0-dev"
+    "libpixman-1-dev"
+    "meson"
+    "build-essential"
+    "uuid-dev"
+    "python-is-python3"
+    "libspice-protocol-dev"
+  )
+  ubuntu_version=("22.04" "22.10")
+  mint_version=("21.1")
+  pop_version=("22.04")
+  alma_version=("9.1")
+  fedora_version=("36" "37")
+  local re="\\b$VERSION_ID\\b"
 
   # Which Distro
   if [[ -e /etc/arch-release ]]; then
-    yes | pacman -S --needed "qemu-base" "virt-manager" "virt-viewer" "dnsmasq" "vde2" "bridge-utils" "openbsd-netcat" "libguestfs" "swtpm" "git" "make" "ninja" "nasm" "iasl" "pkg-config" "spice-protocol" >> $logFile 2>&1
+    yes | pacman -S --needed "${arch_depends[@]}" >> $logFile 2>&1
   elif [[ -e /etc/debian_version ]]; then
-    if [[ $NAME == "Ubuntu" ]] && [[ $VERSION_ID != @("22.04"|"22.10") ]]; then
-      logger error "This script is only verified to work on Ubuntu Versions 22.04 & 22.10"
-    elif [[ $NAME == "Linux Mint" ]] && [[ $VERSION_ID != "21.1" ]]; then
-      logger error "This script is only verified to work on Linux Mint Version 21.1"
-    elif [[ $NAME == "Pop!_OS" ]] && [[ $VERSION_ID != "22.04" ]]; then
-      logger error "This script is only verified to work on Pop!_OS Version 22.04"
+    if [[ $NAME == "Ubuntu" ]] && [[ ! ${ubuntu_version[*]} =~ $re ]]; then
+      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${ubuntu_version[@]}")"
+    elif [[ $NAME == "Linux Mint" ]] && [[ ! ${mint_version[*]} =~ $re ]]; then
+      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${mint_version[@]}")"
+    elif [[ $NAME == "Pop!_OS" ]] && [[ ${pop_version[*]} =~ $re ]]; then
+      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${pop_version[@]}")"
     fi
 
-    apt install -y "qemu-kvm" "virt-manager" "virt-viewer" "libvirt-daemon-system" "libvirt-clients" "bridge-utils" "swtpm" "mesa-utils" "git" "ninja-build" "nasm" "iasl" "pkg-config" "libglib2.0-dev" "libpixman-1-dev" "meson" "build-essential" "uuid-dev" "python-is-python3" "libspice-protocol-dev" >> $logFile 2>&1
+    apt install -y "${debian_depends[@]}" >> $logFile 2>&1
+
   elif [[ -e /etc/system-release ]]; then
-    if [[ $NAME == "AlmaLinux" ]] && [[ $VERSION_ID != "9.1" ]]; then
-      logger error "This script is only verified to work on AlmaLinux Version 9.1"
-    elif [[ $NAME =~ "Fedora" ]] && [[ $VERSION_ID != @("36"|"37") ]]; then
-      logger error "This script is only verified to work on Fedora Versions 36 & 37"
+    if [[ $NAME == "AlmaLinux" ]] && [[ ${alma_version[*]} =~ $re ]]; then
+      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${alma_version[@]}")"
+    elif [[ $NAME =~ "Fedora" ]] && [[ ${fedora_version[*]} =~ $re ]]; then
+      logger error "This script is only verified to work on Fedora Versions $(printf "%s " "${fedora_version[@]}")"
     fi
 
     if [[ $NAME == "AlmaLinux" ]]; then
-      dnf --enablerepo=crb install -y "qemu-kvm" "virt-manager" "virt-viewer" "virt-install" "libvirt-daemon-config-network" "libvirt-daemon-kvm" "swtpm" "git" "make" "gcc" "g++" "ninja-build" "nasm" "iasl" "libuuid-devel" "glib2-devel" "pixman-devel" "spice-protocol" >> $logFile 2>&1
+      dnf --enablerepo=crb install -y "${alma_depends[@]}" >> $logFile 2>&1
     elif [[ $NAME =~ "Fedora" ]]; then
-      dnf install -y "qemu-kvm" "virt-manager" "virt-viewer" "virt-install" "libvirt-daemon-config-network" "libvirt-daemon-kvm" "swtpm" "g++" "ninja-build" "nasm" "iasl" "libuuid-devel" "glib2-devel" "pixman-devel" "spice-protocol" "spice-server-devel" >> $logFile 2>&1
+      dnf install -y "${fedora_depends[@]}" >> $logFile 2>&1
     fi
   else
     logger error "Cannot find distro!"
   fi
 
   # Fedora and Alma don't have libvirt-qemu for some reason?
-  if [[ $NAME =~ "Fedora" ]] || [[ $NAME == "AlmaLinux" ]]; then
-    groupName=$SUDO_USER
-  else
-    groupName="libvirt-qemu"
-  fi
+  case "$NAME" in
+	  Fedora|AlmaLinux) groupName=$SUDO_USER ;;
+	  *) groupName="libvirt-qemu" ;;
+  esac
 
   # If dir doesn't exist then create it
   if [[ ! -e $ISOPath ]]; then
@@ -181,7 +266,7 @@ function InstallPackages()
   # Download VirtIO Drivers
   if [[ ! -e $ISOPath/virtio-win.iso ]]; then
     logger info "Downloading VirtIO Drivers ISO..."
-    wget -P $ISOPath https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso 2>&1 | grep -i "error" >> $logFile 2>&1
+    wget -P $ISOPath "$virtIO_url" 2>&1 | grep -i "error" >> $logFile 2>&1
   fi
 }
 
