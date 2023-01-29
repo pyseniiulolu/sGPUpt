@@ -444,8 +444,7 @@ function QuerySysInfo()
 
   # Stop the script if we don't have any GPU on the system
   if [[ -z $GPUVideo ]] || [[ -z $GPUAudio ]]; then
-    echo -e "${BLINKYELLOW}! ${RED}ERROR: Couldn't find any GPU on the system...${DEFAULT}"
-    exit 0
+    logger error "Couldn't find any GPU on the system..."
   fi
 
   # If we fail to fill $GPUName
@@ -455,8 +454,7 @@ function QuerySysInfo()
 
   read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Is this the correct GPU? [ $GPUName ]") [y/N]: " CHOICE
   if [[ $CHOICE != @("y"|"Y") ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${RED}Please report this if your GPU wasn't detected correctly!'${DEFAULT}"
-    exit 0
+    logger error "Please report this if your GPU wasn't detected correctly!"
   fi
 
   # Find all USB Controllers
@@ -464,8 +462,7 @@ function QuerySysInfo()
 
   # Stop the script if we don't have any USB on the system
   if [[ -z $aUSB ]]; then
-    echo -e "${BLINKYELLOW}! ${RED}ERROR: Couldn't find any USB controllers on the system...${DEFAULT}"
-    exit 0
+    logger error "Couldn't find any USB controllers on the system..."
   fi
 
   # CPU topology
