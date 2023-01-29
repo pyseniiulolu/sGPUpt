@@ -304,17 +304,18 @@ function QuerySysInfo()
 
   # Core + Thread Pairs
   for (( i=0, u=0; i<$(nproc) / 2; i++ )); do
-    PT=$(lscpu -p | tail -n +5 | grep "$i,*[0-9]*,*[0-9]*,,$i,$i,$i" | cut -d',' -f1 | awk '{printf $0 " "}')
+    PT=$(lscpu -p | tail -n +5 | grep ",,[0-9]*,[0-9]*,$i,[0-9]*" | cut -d"," -f1)
 
-    aCPU[$u]=$(echo $PT | cut -d" " -f1)
-    ((u++))
-    aCPU[$u]=$(echo $PT | cut -d" " -f2)
-    ((u++))
+    ((p=1))
+    for core in $PT; do
+      aCPU[$u]=$(echo $PT | cut -d" " -f$p)
+      ((u++, p++))
+    done
   done
 
   # Used for isolation in start.sh & end.sh
-  ReservedCPUs="$(echo $PT | cut -d" " -f1),$(echo $PT | cut -d" " -f2)"
-  AllCPUs="0-$(echo $PT | cut -d" " -f2)"
+  ReservedCPUs="$(echo $PT | tr " " ",")"
+  AllCPUs="0-$(($(nproc)-1))"
 
   # Stop the script if we have more than one GPU in the system
   if (( $(lspci | grep "VGA" | wc -l) > 1 )); then
