@@ -43,7 +43,6 @@ sudo ./sGPUpt.sh "Windows-Gaming" AMD
 | Hardware             | Status |
 | -------------------- | ------ |
 | Intel Arc GPUs       |   ❌   |
-| Intel 12th+ Gen CPUs |   ❌   |
 
 I don't have access to this hardware so if you want support for the hardware listed above please PM me on reddit or open an issue.
 
