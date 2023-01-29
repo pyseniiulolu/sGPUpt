@@ -389,19 +389,19 @@ function QuerySysInfo()
 
   # Get the hosts total memory to split for the VM
   SysMem=$(free -g | grep -oP '\d+' | head -n 1)
-  if (( $SysMem > 120 )); then
+  if [[ $SysMem -gt 120 ]]; then
     vMem="65536"
-  elif (( $SysMem > 90 )); then
+  elif [[ $SysMem -gt 90 ]]; then
     vMem="49152"
-  elif (( $SysMem > 60 )); then
+  elif [[ $SysMem -gt 60 ]]; then
     vMem="32768"
-  elif (( $SysMem > 30 )); then
+  elif [[ $SysMem -gt 30 ]]; then
     vMem="16384"
-  elif (( $SysMem > 20 )); then
+  elif [[ $SysMem -gt 20 ]]; then
     vMem="12288"
-  elif (( $SysMem > 14 )); then
+  elif [[ $SysMem -gt 14 ]]; then
     vMem="8192"
-  elif (( $SysMem > 10 )); then
+  elif [[ $SysMem -gt 10 ]]; then
     vMem="6144"
   else
     vMem="4096"
