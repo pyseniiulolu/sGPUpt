@@ -126,10 +126,11 @@ function main()
 
   # NEEDED TO FIX DEBIAN-BASED DISTROS USING VIRT-MANAGER
   if [[ $firstInstall == "true" ]]; then
-    read -p "A reboot is required for this distro, reboot now? [Y/n]: " CHOICE
-    if [[ $CHOICE == @("y"|"Y") ]]; then
-      reboot
-    fi
+    read -p "$(logger info "A reboot is required for this distro, reboot now? [Y/n]: ")" CHOICE
+    case "$CHOICE" in
+	    y|Y) reboot ;;
+	    "") reboot ;;
+    esac
   fi
 }
 
