@@ -763,20 +763,17 @@ function CreateVM()
 
   # Disk img doesn't exist then create it
   if [[ ! -e $DiskPath/$VMName.qcow2 ]]; then
-    read -p "$(logger info "Do you want to create a drive named ${VMName}${DEFAULT}? [y/N]: ")" CHOICE
-    if [[ $CHOICE == @("y"|"Y") ]]; then
-      HandleDisk
-    else
-      DiskSize=$DefaultDiskSize
-    fi
-  else
-	  read -p "$(logger info "Do you want to overwrite a drive named ${VMName}? [y/N]: ")" CHOICE
-    if [[ $CHOICE == @("y"|"Y") ]]; then
-      HandleDisk
-    else
-      DiskSize=$DefaultDiskSize
-    fi
+    read -p "$(logger info "Do you want to create a drive named ${VMName}? [y/N]: ")" CHOICE
+  else 
+    read -p "$(logger info "The drive ${VMName} already exists. Overwrite it? [y/N]: ")" CHOICE
   fi
+
+  case $CHOICE in
+    y|Y) HandleDisk 
+      disk_pretty=" Disk: \"$DiskSize\", "
+      ;;
+    ""|N) disk_pretty=" "
+  esac
 
   case $SysType in
     AMD)    CPUFeatures="hv_vendor_id=AuthenticAMD,-x2apic,+svm,+invtsc,+topoext" ;;
@@ -788,7 +785,7 @@ function CreateVM()
   Emulator="/etc/sGPUpt/qemu-system-x86_64"
   cp $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_VARS.fd $OVMF_VARS
 
-  logger info "Creating VM [ Type:\"$SysType\", Name:\"$VMName\", vCPU:\"$vCPU\", Mem:\"$vMem"\M"\", Disk:\"${DiskSize}G\", QEMU-V:\"$vQEMU\" ]"
+  logger info "Creating VM [ Type:\"$SysType\", Name:\"$VMName\", vCPU:\"$vCPU\", Mem:\"$vMem"\M"\",${disk_pretty}QEMU-V:\"$vQEMU\" ]"
 
   virt-install \
   --connect qemu:///system \
