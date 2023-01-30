@@ -826,7 +826,7 @@ function CreateVM()
 
 function HandleDisk()
 {
-  read -p "$(logger info Size of disk? [GB]: )" DiskSize
+  read -p "$(logger info "Size of disk? [GB]: ")" DiskSize
   if [[ ! $DiskSize =~ ^[0-9]+$ ]] || (( $DiskSize < 1 )); then
     echo -e "Default"
     DiskSize=$DefaultDiskSize
