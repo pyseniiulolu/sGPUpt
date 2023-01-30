@@ -494,45 +494,48 @@ function QuerySysInfo()
   cGPUVideo=$(echo $GPUVideo | tr :. _)
   cGPUAudio=$(echo $GPUAudio | tr :. _)
 
-echo -e "[\"Query Result\"]
-{
-  \"System Conf\":[
-  {
-    \"CPU\":[
-    {
-      \"ID\":\"$CPUBrand\",
-      \"Name\":\"$CPUName\",
-      \"CPU Pinning\": [ \"${aCPU[@]}\" ]
-    }],
+	cat <<- DOC >> $logFile
+	["Query Result"]
+	{
+	  "System Conf":[
+	  {
+	    "CPU":[
+	    {
+	      "ID":"$CPUBrand",
+	      "Name":"$CPUName",
+	      "CPU Pinning": [ "${aCPU[@]}" ]
+	    }],
 
-    \"Sys.Memory\":\"$SysMem\",
+	    "Sys.Memory":"$SysMem",
 
-    \"Isolation\":[
-    {
-      \"ReservedCPUs\":\"$ReservedCPUs\",
-      \"AllCPUs\":\"$AllCPUs\"
-    }],
+	    "Isolation":[
+	    {
+	      "ReservedCPUs":"$ReservedCPUs",
+	      "AllCPUs":"$AllCPUs"
+	    }],
 
-    \"PCI\":[
-    {
-      \"GPU Name\":\"$(echo -e $GPUName | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g")\",
-      \"GPU Video\":\"$GPUVideo\",
-      \"GPU Audio\":\"$GPUAudio\",
-      \"USB IDs\": [ ${aUSB[@]} ]
-    }],
-  }],
+	    "PCI":[
+	    {
+	      "GPU Name":"$(<<< $GPUName sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g")",
+	      "GPU Video":"$GPUVideo",
+	      "GPU Audio":"$GPUAudio",
+	      "USB IDs": [ ${aUSB[@]} ]
+	    }],
+	  }],
 
-  \"Virt Conf\":[
-  {
-    \"vCPUs\":\"$vCPU\",
-    \"vCores\":\"$vCore\",
-    \"vThreads\":\"$vThread\",
-    \"vMem\":\"$vMem\",
-    \"Converted GPU Video\":\"$cGPUVideo\",
-    \"Converted GPU Audio\":\"$cGPUAudio\",
-    \"USB IDs\": [ $(echo ${aUSB[@]} | tr :. _) ]
-  }]
-}\n" >> $logFile
+	  "Virt Conf":[
+	  {
+	    "vCPUs":"$vCPU",
+	    "vCores":"$vCore",
+	    "vThreads":"$vThread",
+	    "vMem":"$vMem",
+	    "Converted GPU Video":"$cGPUVideo",
+	    "Converted GPU Audio":"$cGPUAudio",
+	    "USB IDs": [ $(echo ${aUSB[@]} | tr :. _) ]
+	  }]
+	}
+
+	DOC
 }
 
 function SetupHooks()
