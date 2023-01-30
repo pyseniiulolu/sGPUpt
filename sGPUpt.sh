@@ -461,9 +461,18 @@ function QuerySysInfo()
   if [[ $CHOICE != @("y"|"Y") ]]; then
     logger error "Please report this if your GPU wasn't detected correctly!"
   fi
+  
+  if [[ $GPUVideo =~ "0000:" ]]; then
+    GPUVideo=$(echo ${GPUVideo//0000:/})
+    GPUAudio=$(echo ${GPUAudio//0000:/})
+  fi
 
   # Find all USB Controllers
   aUSB=$(lspci | grep "USB" | awk '{printf $1 " "}' | head -c -1)
+
+  if [[ ${aUSB[@]} =~ "0000:" ]]; then
+    aUSB=$(echo ${aUSB[@]//0000:/})
+  fi
 
   # Stop the script if we don't have any USB on the system
   if [[ -z $aUSB ]]; then
