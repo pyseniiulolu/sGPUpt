@@ -5,22 +5,24 @@ version=0.1.0
 author=lexi-src
 tool=sGPUpt
 
-PURPLE='\033[0;35m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-WHITE='\033[0;37m'
-BLACK='\033[0;30m'
-DEFAULT='\033[0m'
+#TODO: add keys and codes into associative array
+PURPLE=$(tput setaf 5)
+BLUE=$(tput setaf 4)
+CYAN=$(tput setaf 6)
+GREEN=$(tput setaf 2)
+YELLOW=$(tput setaf 3)
+RED=$(tput setaf 1)
+WHITE=$(tput setaf 8)
+BLACK=$(tput setaf 0)
+DEFAULT=$(tput sgr0)
 
-WHITEBG='\033[0;30;47m'
-RESETBG='\033[0m'
+WHITEBG=$(tput smso)
+RESETBG=$(tput sgr0)
+UNDERLINE=$(tput smul)
 
-BLINKYELLOW='\033[1;33m\033[5;33m'
-BLINKRED='\033[0;31m\033[5;31m'
-UNDERLINE='\033[0m\033[4;37m'
+#deprecated
+#BLINKYELLOW='\033[1;33m\033[5;33m'
+#BLINKRED='\033[0;31m\033[5;31m'
 
 # Main Vars
 VMName=$1
