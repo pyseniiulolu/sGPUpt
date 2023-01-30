@@ -59,7 +59,7 @@ function header(){
   #TODO: parameterize offset width
   url="https://github.com/$author/$tool/issues"
   rep="Report issues @ $url"
-  tag="# ${RED}♥${DEFAULT} $tool made by $author ${RED}♥${DEFAULT}"
+  tag="${RED}♥${DEFAULT} $tool made by $author ${RED}♥${DEFAULT}"
   blen=$(<<< $rep wc -m)
   row=$((blen+3))
   tlen=$(<<< $tag wc -m)
@@ -67,14 +67,20 @@ function header(){
   dlen=$(echo -n "${DEFAULT}" | wc -m)
   tlen=$((tlen-((clen*2))-((dlen*2))))
   pad=$((row-tlen))
+  hpad=$((pad/2))
   border(){
      printf "\n"
      for((i=0;i<$row;i++)); do
        printf "#"
      done
   }
+  hpadded(){
+     for((i=0;i<$hpad;i++)); do
+       printf " "
+     done
+  }
   border
-  printf "\n%s%${pad}s#\n" "$tag"
+  printf "\n#%s%s%${hpad}s#\n" "$(hpadded)" "$tag"
   printf "# %s #" "$rep"
   border
   printf "\n"
