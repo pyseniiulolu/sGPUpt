@@ -277,13 +277,13 @@ function SecurityChecks()
   # targets home systems it's well worth the trade-off to disable security for ease of use.  #
   #                                                                                          #
   ############################################################################################
-
+  local armor="/etc/apparmor.d/usr/sbin.libvirtd"
   # Disable AppArmor
   if [[ $NAME == @("Ubuntu"|"Pop!_OS"|"Linux Mint") ]] && [[ ! -e /etc/apparmor.d/disable/usr.sbin.libvirtd ]]; then
     firstInstall="true" # NEEDED TO FIX DEBIAN-BASED DISTROS USING VIRT-MANAGER
     logger info "Disabling AppArmor permanently for this distro"
-    ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/ >> $logFile 2>&1
-    apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd >> $logFile 2>&1
+    ln -s "$armor" /etc/apparmor.d/disable/ >> $logFile 2>&1
+    apparmor_parser -R "$armor" >> $logFile 2>&1
   fi
 
   # Disable SELinux
