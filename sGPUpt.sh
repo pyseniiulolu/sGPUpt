@@ -309,7 +309,7 @@ function CompileChecks()
 
   # Compile Spoofed QEMU & EDK2 OVMF
   if [[ ! -e $qemuDir/build/qemu-system-x86_64 ]]; then
-    logger "Starting QEMU compile... please wait."
+    logger info "Starting QEMU compile... please wait."
     echo 0 > /etc/sGPUpt/install-status.txt
     QemuCompile
   fi
