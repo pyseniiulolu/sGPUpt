@@ -762,12 +762,12 @@ function CreateVM()
 
   # Disk img doesn't exist then create it
   if [[ ! -e $DiskPath/$VMName.qcow2 ]]; then
-    read -p "$(logger info "Do you want to create a drive named ${VMName}${DEFAULT}")? [y/N]: " CHOICE
+    read -p "$(logger info "Do you want to create a drive named ${VMName}${DEFAULT}? [y/N]: ")" CHOICE
     if [[ $CHOICE == @("y"|"Y") ]]; then
       HandleDisk
     fi
   else
-    read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Do you want to ${RED}overwrite${DEFAULT} a drive named ${YELLOW}${VMName}${DEFAULT}")? [y/N]: " CHOICE
+	  read -p "$(logger info "Do you want to overwrite a drive named ${VMName}? [y/N]: ")" CHOICE
     if [[ $CHOICE == @("y"|"Y") ]]; then
       HandleDisk
     fi
