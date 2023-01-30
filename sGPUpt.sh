@@ -86,12 +86,7 @@ function logger(){
       ;;
   esac
   printf "%s${!col}[%s]${DEFAULT} %s\n" "$pref" $flag "$2"
-  case "$1" in
-    warn|error)
-	    header
-	    exit 1
-	    ;;
-  esac
+  [[ "$1" == "error" ]] && exit 1
 }
 
 function main()
@@ -452,7 +447,7 @@ function QuerySysInfo()
 
   # If we fail to fill $GPUName
   if [[ -z $GPUName ]]; then
-    logger error "Failed to find GPU name. Do you have drivers installed?"
+    logger warn "Failed to find GPU name. Do you have drivers installed?"
   fi
 
   read -p "$(logger info "Is this the correct GPU? [ $GPUName ]") [y/N]: " CHOICE
