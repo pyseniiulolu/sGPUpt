@@ -763,14 +763,17 @@ function CreateVM()
 
   # Disk img doesn't exist then create it
   if [[ ! -e $DiskPath/$VMName.qcow2 ]]; then
-    read -p "$(logger info "Do you want to create a drive named ${VMName}${DEFAULT}? [y/N]: ")" CHOICE
-    case $CHOICE in
-	    y|Y) HandleDisk 
-		 disk_pretty=" Disk: \"$DiskSize\", "
-		 ;;
-	    ""|N) disk_pretty=" "
-    esac
+    read -p "$(logger info "Do you want to create a drive named ${VMName}? [y/N]: ")" CHOICE
+  else 
+    read -p "$(logger info "The drive ${VMName} already exists. Overwrite it? [y/N]: ")" CHOICE
   fi
+
+  case $CHOICE in
+    y|Y) HandleDisk 
+      disk_pretty=" Disk: \"$DiskSize\", "
+      ;;
+    ""|N) disk_pretty=" "
+  esac
 
   case $SysType in
     AMD)    CPUFeatures="hv_vendor_id=AuthenticAMD,-x2apic,+svm,+invtsc,+topoext" ;;
@@ -830,7 +833,6 @@ function HandleDisk()
 {
   read -p "$(logger info "Size of disk? [GB]: ")" DiskSize
   if [[ ! $DiskSize =~ ^[0-9]+$ ]] || (( $DiskSize < 1 )); then
-    echo -e "Default"
     DiskSize=$DefaultDiskSize
   fi
 
