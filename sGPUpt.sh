@@ -408,8 +408,7 @@ function QuerySysInfo()
   elif [[ $CPUBrand == "GenuineIntel" ]]; then
     SysType="Intel"
   else
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${RED}Failed to find CPU brand.${DEFAULT}"
-    exit 0
+    logger error "Failed to find CPU brand."
   fi
 
   # Core + Thread Pairs
@@ -429,8 +428,7 @@ function QuerySysInfo()
 
   # Stop the script if we have more than one GPU in the system
   if (( $(lspci | grep "VGA" | wc -l) > 1 )); then
-    echo -e "${BLINKYELLOW}! ${RED}ERROR: There are too many GPUs in the system!${DEFAULT}"
-    exit 0
+    logger error "There are too many GPUs in the system!"
   fi
 
   # Determine which GPU type
@@ -451,10 +449,10 @@ function QuerySysInfo()
 
   # If we fail to fill $GPUName
   if [[ -z $GPUName ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${RED}Failed to find GPU name, do you have drivers installed?.${DEFAULT}"
+    logger error "Failed to find GPU name. Do you have drivers installed?"
   fi
 
-  read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Is this the correct GPU? [ $GPUName ]") [y/N]: " CHOICE
+  read -p "$(logger info "Is this the correct GPU? [ $GPUName ]") [y/N]: " CHOICE
   if [[ $CHOICE != @("y"|"Y") ]]; then
     logger error "Please report this if your GPU wasn't detected correctly!"
   fi
@@ -546,9 +544,9 @@ function SetupHooks()
 
   # Is this the first time we're creating hooks for this VM?
   if [[ ! -e $pHookVM ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Creating passthrough hooks..."
+    logger info "Creating passthrough hooks..."
   else
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Recreating passthrough hooks..."
+    logger info "Recreating passthrough hooks..."
   fi
 
   # Create start.sh & end.sh
@@ -680,7 +678,7 @@ function vNetworkCheck()
     virsh net-define $netPath >> $logFile 2>&1
     rm $netPath >> $logFile 2>&1
 
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Network Manually Created"
+    logger info "Network manually created"
   fi
 
   # set autostart on network '$netName' in case it wasn't already on for some reason
@@ -757,7 +755,7 @@ function CreateVM()
 
   # Disk img doesn't exist then create it
   if [[ ! -e $DiskPath/$VMName.qcow2 ]]; then
-    read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Do you want to create a drive named ${YELLOW}${VMName}${DEFAULT}")? [y/N]: " CHOICE
+    read -p "$(logger info "Do you want to create a drive named ${VMName}${DEFAULT}")? [y/N]: " CHOICE
     if [[ $CHOICE == @("y"|"Y") ]]; then
       HandleDisk
     fi
@@ -839,7 +837,7 @@ function InsertSpoofedBoard()
 {
   ASUSMotherboards
 
-  echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${YELLOW}$VMName${DEFAULT}: Spoofing Motherboard [ ${CYAN}$BaseBoardProduct${DEFAULT} ]"
+  logger info "Spoofing motherboard"
 
   virt-xml $VMName --add-device --sysinfo bios.vendor="$BIOSVendor",bios.version="$BIOSRandVersion",bios.date="$BIOSDate",bios.release="$BIOSRandRelease" >> $logFile 2>&1
   virt-xml $VMName --add-device --sysinfo system.manufacturer="$SystemManufacturer",system.product="$SystemProduct",system.version="$SystemVersion",system.serial="$SystemRandSerial",system.uuid="$SystemUUID",system.sku="$SystemSku",system.family="$SystemFamily" >> $logFile 2>&1
