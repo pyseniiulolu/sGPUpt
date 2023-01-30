@@ -770,7 +770,7 @@ function CreateVM()
 
   case $CHOICE in
     y|Y) HandleDisk 
-      disk_pretty=" Disk: \"${DiskSize}G\", "
+      disk_pretty=" Disk:\"${DiskSize}G\", "
       ;;
     ""|N) disk_pretty=" "
   esac
