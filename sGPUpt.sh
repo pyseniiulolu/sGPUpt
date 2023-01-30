@@ -616,7 +616,7 @@ function StartScript()
 	#!/bin/bash
 	set -x
 	systemctl stop display-manager
-	for file in /sys/class/vtconsole/*; do"
+	for file in /sys/class/vtconsole/*; do
 		if (( \$(grep -c \"frame buffer\" \$file/name) == 1 )); then
 			echo 0 > \$file/bind
 		fi
