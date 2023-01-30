@@ -432,13 +432,14 @@ function QuerySysInfo()
   fi
 
   # Determine which GPU type
+  local lsp=$(lspci)
   if [[ $GPUType == "NVIDIA" ]]; then
-    GPUVideo=$(lspci | grep "NVIDIA" | grep "VGA" | cut -d" " -f1)
-    GPUAudio=$(lspci | grep "NVIDIA" | grep "Audio" | cut -d" " -f1)
+    GPUVideo=$(<<< "$lsp" grep "NVIDIA" | grep "VGA" | cut -d" " -f1)
+    GPUAudio=$(<<< "$lsp" grep "NVIDIA" | grep "Audio" | cut -d" " -f1)
     GPUName=${GREEN}$(glxinfo -B | grep "renderer string" | cut -d":" -f2 | cut -c2- | cut -d"/" -f1)${DEFAULT}
   elif [[ $GPUType == "AMD" ]]; then
-    GPUVideo=$(lspci | grep "AMD/ATI" | grep "VGA" | cut -d" " -f1)
-    GPUAudio=$(lspci | grep "AMD/ATI" | grep "Audio" | cut -d" " -f1)
+    GPUVideo=$(<<< "$lsp" grep "AMD/ATI" | grep "VGA" | cut -d" " -f1)
+    GPUAudio=$(<<< "$lsp" grep "AMD/ATI" | grep "Audio" | cut -d" " -f1)
     GPUName=${RED}$(glxinfo -B | grep "renderer string" | cut -d":" -f2 | cut -c2- | cut -d"(" -f1 | head -c -2)${DEFAULT}
   fi
 
@@ -825,7 +826,7 @@ function CreateVM()
 
 function HandleDisk()
 {
-  read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Size of disk?") [GB]: " DiskSize
+  read -p "$(logger info Size of disk? [GB]: )" DiskSize
   if [[ ! $DiskSize =~ ^[0-9]+$ ]] || (( $DiskSize < 1 )); then
     echo -e "Default"
     DiskSize=$DefaultDiskSize
