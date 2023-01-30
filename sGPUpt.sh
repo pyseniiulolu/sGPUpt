@@ -252,7 +252,7 @@ function InstallPackages()
     if [[ $NAME == "AlmaLinux" ]] && [[ ! ${alma_version[*]} =~ $re ]]; then
       logger error "This script is only verified to work on $NAME Version $(printf "%s " "${alma_version[@]}")"
     elif [[ $NAME =~ "Fedora" ]] && [[ ! ${fedora_version[*]} =~ $re ]]; then
-      logger error "This script is only verified to work on Fedora Versions $(printf "%s " "${fedora_version[@]}")"
+      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${fedora_version[@]}")"
     fi
 
     if [[ $NAME == "AlmaLinux" ]]; then
