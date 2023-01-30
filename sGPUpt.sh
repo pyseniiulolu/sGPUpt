@@ -592,7 +592,7 @@ function StartScript()
     mkdir -p $pHookVM/prepare/begin/ >> $logFile 2>&1
     touch    $pHookVM/prepare/begin/start.sh >> $logFile 2>&1
   fi
-
+	> $fHookStart
 	cat <<- DOC >> $fHookStart
 	#!/bin/bash
 	set -x
@@ -628,6 +628,7 @@ function EndScript()
     touch    $pHookVM/release/end/stop.sh >> $logFile 2>&1
   fi
 
+	> $fHookEnd
 	cat <<- DOC >> $fHookEnd
 	#!/bin/bash
 	set -x
@@ -657,6 +658,7 @@ function vNetworkCheck()
   # If '$netName' doesn't exist then create it!
   if [[ $(virsh net-autostart $netName 2>&1) = *"Network not found"* ]]; then
 
+	> $netPath
 	cat <<- DOC >> $netPath
 	<network>
 		<name>$netName</name>
