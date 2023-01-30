@@ -287,12 +287,13 @@ function SecurityChecks()
   fi
 
   # Disable SELinux
+  local se_config="/etc/selinux/config"
   if [[ $NAME =~ "Fedora" ]] || [[ $NAME == "AlmaLinux" ]]; then
-    source /etc/selinux/config
+    source "$se_config"
     if [[ $SELINUX == "enforcing" ]]; then
       logger info "Disabling SELinux permanently for this distro"
       setenforce 0 >> $logFile 2>&1
-      sed -i "s/SELINUX=enforcing/SELINUX=disabled/" /etc/selinux/config >> $logFile 2>&1
+      sed -i "s/SELINUX=enforcing/SELINUX=disabled/" "$se_config" >> $logFile 2>&1
     fi
   fi
 }
