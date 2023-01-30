@@ -53,7 +53,7 @@ logFile="/home/$SUDO_USER/Desktop/sGPUpt.log"
 tab="$(printf '\t')"
 virtIO_url="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
 
-function footer(){
+function header(){
   url="https://github.com/$author/$tool/issues"
   printf "\n"
   printf "#%.0s" {1..61}
@@ -86,7 +86,7 @@ function logger(){
   printf "%s${!col}[%s]${DEFAULT} %s\n" "$pref" $flag "$2"
   case "$1" in
     warn|error)
-	    footer
+	    header
 	    exit 1
 	    ;;
   esac
@@ -109,6 +109,8 @@ function main()
   elif [[ -z $(ls -A /sys/class/iommu/) ]]; then
     logger error "This system doesn't support IOMMU, please enable it then run this script again!"
   fi
+
+  header
 
   # Start logging
   > $logFile
