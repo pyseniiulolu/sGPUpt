@@ -480,8 +480,10 @@ function QuerySysInfo()
   fi
 
   # CPU topology
+  for core in $PT; do ((int+=1)); done
+
   vThread=$(lscpu | grep "Thread(s)" | awk '{print $4}')
-  vCPU=$(($(nproc) - $vThread))
+  vCPU=$(($(nproc) - $int))
   vCore=$(($vCPU / $vThread))
 
   # Get the hosts total memory to split for the VM
