@@ -758,11 +758,15 @@ function CreateVM()
     read -p "$(logger info "Do you want to create a drive named ${VMName}${DEFAULT}")? [y/N]: " CHOICE
     if [[ $CHOICE == @("y"|"Y") ]]; then
       HandleDisk
+    else
+      DiskSize=$DefaultDiskSize
     fi
   else
     read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Do you want to ${RED}overwrite${DEFAULT} a drive named ${YELLOW}${VMName}${DEFAULT}")? [y/N]: " CHOICE
     if [[ $CHOICE == @("y"|"Y") ]]; then
       HandleDisk
+    else
+      DiskSize=$DefaultDiskSize
     fi
   fi
 
@@ -824,7 +828,6 @@ function HandleDisk()
 {
   read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Size of disk?") [GB]: " DiskSize
   if [[ ! $DiskSize =~ ^[0-9]+$ ]] || (( $DiskSize < 1 )); then
-    echo -e "Default"
     DiskSize=$DefaultDiskSize
   fi
 
