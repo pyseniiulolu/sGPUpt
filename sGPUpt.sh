@@ -421,13 +421,11 @@ function QuerySysInfo()
   CPUBrand=$(grep -m 1 'vendor_id' /proc/cpuinfo | cut -c13-)
   CPUName=$(grep -m 1 'model name' /proc/cpuinfo | cut -c14-)
 
-  if [[ $CPUBrand == "AuthenticAMD" ]]; then
-    SysType="AMD"
-  elif [[ $CPUBrand == "GenuineIntel" ]]; then
-    SysType="Intel"
-  else
-    logger error "Failed to find CPU brand."
-  fi
+  case $CPUBrand in
+	  "AuthenticAMD") SysType="AMD" ;;
+	  "GenuineIntel") SysType="Intel" ;;
+	  *) logger error "Failed to find CPU brand." ;;
+  esac
 
   # Core + Thread Pairs
   for (( i=0, u=0; i<$(nproc) / 2; i++ )); do
@@ -482,7 +480,7 @@ function QuerySysInfo()
   fi
 
   # Find all USB Controllers
-  aUSB=$(lspci | grep "USB" | awk '{printf $1 " "}' | head -c -1)
+  aUSB=$(<<< "$lsp" grep "USB" | awk '{printf $1 " "}' | head -c -1)
 
   if [[ ${aUSB[@]} =~ "0000:" ]]; then
     aUSB=$(echo ${aUSB[@]//0000:/})
