@@ -770,10 +770,6 @@ function CreateVM()
 		 ;;
 	    ""|N) disk_pretty=" "
     esac
-    read -p "$(logger info "Do you want to overwrite a drive named ${VMName}? [y/N]: ")" CHOICE
-    if [[ $CHOICE == @("y"|"Y") ]]; then
-      HandleDisk
-    fi
   fi
 
   case $SysType in
