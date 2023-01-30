@@ -1,6 +1,10 @@
 #!/bin/bash
 LANG=en_US.UTF-8
 
+version=0.1.0
+author=lexi-src
+tool=sGPUpt
+
 PURPLE='\033[0;35m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
@@ -46,37 +50,67 @@ edkBranch="edk2-stable202211"
 edkDir="/etc/sGPUpt/edk-compile"
 
 logFile="/home/$SUDO_USER/Desktop/sGPUpt.log"
+tab="$(printf '\t')"
+virtIO_url="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
+
+function header(){
+  url="https://github.com/$author/$tool/issues"
+  printf "\n"
+  printf "#%.0s" {1..61}
+  printf "\n# ♥ %s ♥%30s #\n" "$tool made by $author"
+  printf "# Report issues @ %s #" "$url"
+  printf "\n"
+  printf "#%.0s" {1..61}
+  printf "\n"
+}
+function logger(){
+  pref="[sGPUpt]"
+  case "$1" in
+    success)
+      flag=INFO
+      col=GREEN
+      ;;
+    info)
+      flag=INFO
+      col=YELLOW
+      ;;
+    warn)
+      flag=WARN
+      col=YELLOW
+      ;;
+    error)
+      flag=ERROR
+      col=RED
+      ;;
+  esac
+  printf "%s${!col}[%s]${DEFAULT} %s\n" "$pref" $flag "$2"
+  case "$1" in
+    warn|error)
+	    header
+	    exit 1
+	    ;;
+  esac
+}
 
 function main()
 {
   if [[ ! $(whoami) = "root" ]]; then
-    echo -e "${BLINKYELLOW}! ${RED}This script requires root privileges!${DEFAULT}"
-    exit 0
+    logger error "This script requires root privileges!"
   elif [[ -z $VMName ]] || [[ -z $GPUType ]] || [[ $GPUType != @("NVIDIA"|"AMD") ]]; then
-    echo -e "${CYAN}usage:${YELLOW} >> ${GREEN}sudo ./sGPUpt.sh \"{VM-Name}\" {NVIDIA|AMD}${DEFAULT}\n"
-    exit 0
+    logger error "Usage: sudo ./sGPUpt.sh \"{VM-Name}\" <NVIDIA|AMD>"
   elif [[ $VMName = *" "* ]]; then
-    echo -e "${BLINKYELLOW}! ${DEFAULT}${YELLOW}Your machines name cannot contain ${DEFAULT}'${RED} ${DEFAULT}'"
-    exit 0
+    logger error "Your machine's name cannot contain the character: ' '"
   elif [[ $VMName = *"/"* ]]; then
-    echo -e "${BLINKYELLOW}! ${DEFAULT}${YELLOW}Your machines name cannot contain ${DEFAULT}'${RED}/${DEFAULT}'"
-    exit 0
+    logger error "Your machine's name cannot contain the character: '/'"
   elif [[ -z $(grep -E -m 1 "svm|vmx" /proc/cpuinfo) ]]; then
-    echo -e "${BLINKYELLOW}! ${DEFAULT}${RED}This system doesn't support virtualization, please enable it then run this script again!${DEFAULT}"
-    exit 0
+    logger error "This system doesn't support virtualization, please enable it then run this script again!"
   elif [[ ! -d /sys/firmware/efi ]]; then
-    echo -e "${BLINKYELLOW}! ${DEFAULT}${RED}This system isn't installed in UEFI mode!${DEFAULT}"
+    logger error "This system isn't installed in UEFI mode!"
   elif [[ -z $(ls -A /sys/class/iommu/) ]]; then
-    echo -e "${BLINKYELLOW}! ${DEFAULT}${RED}This system doesn't support IOMMU, please enable it then run this script again!${DEFAULT}"
-    exit 0
+    logger error "This system doesn't support IOMMU, please enable it then run this script again!"
   fi
 
-  echo -e "  ${CYAN}#############################################################${DEFAULT}"
-  echo -e "  ${CYAN}#${DEFAULT} \t\t\t\t\t\t\t      ${CYAN}#${DEFAULT}"
-  echo -e "  ${CYAN}#${DEFAULT} \t\t    ${RED}${BLINKRED}♥${DEFAULT}${PURPLE} sGPUpt${DEFAULT} made by ${PURPLE}lexi-src${DEFAULT} ${BLUE}${BLINKRED}♥${DEFAULT}\t\t      ${CYAN}#${DEFAULT}"
-  echo -e "  ${CYAN}#${DEFAULT} Report issues @ ${UNDERLINE}https://github.com/lexi-src/sGPUpt/issues${CYAN} #${DEFAULT}"
-  echo -e "  ${CYAN}#${DEFAULT} \t\t\t\t\t\t\t      ${CYAN}#${DEFAULT}"
-  echo -e "  ${CYAN}#############################################################${DEFAULT}\n"
+  header
 
   # Start logging
   > $logFile
@@ -91,8 +125,8 @@ function main()
   CreateVM
 
   # End Information
-  echo -e "\n${BLINKRED}*${DEFAULT} Add your desired OS then start your VM with ${BLUE}Virt Manager${DEFAULT} or ${BLUE}sudo virsh start $VMName${DEFAULT}"
-  
+  logger info "Add your desired OS, then start your VM with Virt Manager or 'sudo virsh start'"
+
   # NEEDED TO FIX DEBIAN-BASED DISTROS USING VIRT-MANAGER
   if [[ $firstInstall == "true" ]]; then
     read -p "A reboot is required for this distro, reboot now? [Y/n]: " CHOICE
@@ -105,48 +139,126 @@ function main()
 function InstallPackages()
 {
   source /etc/os-release
+  arch_depends=(
+    "qemu-base"
+    "virt-manager"
+    "virt-viewer"
+    "dnsmasq"
+    "vde2"
+    "bridge-utils"
+    "openbsd-netcat"
+    "libguestfs"
+    "swtpm"
+    "git"
+    "make"
+    "ninja"
+    "nasm"
+    "iasl"
+    "pkg-config"
+    "spice-protocol"
+  )
+  alma_depends=(
+    "qemu-kvm"
+    "virt-manager"
+    "virt-viewer"
+    "virt-install"
+    "libvirt-daemon-config-network"
+    "libvirt-daemon-kvm"
+    "swtpm"
+    "git"
+    "make"
+    "gcc"
+    "g++"
+    "ninja-build"
+    "nasm"
+    "iasl"
+    "libuuid-devel"
+    "glib2-devel"
+    "pixman-devel"
+    "spice-protocol"
+  )
+  fedora_depends=(
+    "qemu-kvm"
+    "virt-manager"
+    "virt-viewer"
+    "virt-install"
+    "libvirt-daemon-config-network"
+    "libvirt-daemon-kvm"
+    "swtpm"
+    "g++"
+    "ninja-build"
+    "nasm"
+    "iasl"
+    "libuuid-devel"
+    "glib2-devel"
+    "pixman-devel"
+    "spice-protocol"
+    "spice-server-devel"
+  )
+  debian_depends=(
+    "qemu-kvm"
+    "virt-manager"
+    "virt-viewer"
+    "libvirt-daemon-system"
+    "libvirt-clients"
+    "bridge-utils"
+    "swtpm"
+    "mesa-utils"
+    "git"
+    "ninja-build"
+    "nasm"
+    "iasl"
+    "pkg-config"
+    "libglib2.0-dev"
+    "libpixman-1-dev"
+    "meson"
+    "build-essential"
+    "uuid-dev"
+    "python-is-python3"
+    "libspice-protocol-dev"
+  )
+  ubuntu_version=("22.04" "22.10")
+  mint_version=("21.1")
+  pop_version=("22.04")
+  alma_version=("9.1")
+  fedora_version=("36" "37")
+  local re="\\b$VERSION_ID\\b"
 
   # Which Distro
   if [[ -e /etc/arch-release ]]; then
-    yes | pacman -S --needed "qemu-base" "virt-manager" "virt-viewer" "dnsmasq" "vde2" "bridge-utils" "openbsd-netcat" "libguestfs" "swtpm" "git" "make" "ninja" "nasm" "iasl" "pkg-config" "spice-protocol" >> $logFile 2>&1
+    yes | pacman -S --needed "${arch_depends[@]}" >> $logFile 2>&1
   elif [[ -e /etc/debian_version ]]; then
-    if [[ $NAME == "Ubuntu" ]] && [[ $VERSION_ID != @("22.04"|"22.10") ]]; then
-      echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] This script is only verified to work on Ubuntu Versions ${YELLOW}22.04 & 22.10${DEFAULT}"
-      exit 0
-    elif [[ $NAME == "Linux Mint" ]] && [[ $VERSION_ID != "21.1" ]]; then
-      echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] This script is only verified to work on Linux Mint Version ${YELLOW}21.1${DEFAULT}"
-      exit 0
-    elif [[ $NAME == "Pop!_OS" ]] && [[ $VERSION_ID != "22.04" ]]; then
-      echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] This script is only verified to work on Pop!_OS Version ${YELLOW}22.04${DEFAULT}"
-      exit 0
+    if [[ $NAME == "Ubuntu" ]] && [[ ! ${ubuntu_version[*]} =~ $re ]]; then
+      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${ubuntu_version[@]}")"
+    elif [[ $NAME == "Linux Mint" ]] && [[ ! ${mint_version[*]} =~ $re ]]; then
+      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${mint_version[@]}")"
+    elif [[ $NAME == "Pop!_OS" ]] && [[ ${pop_version[*]} =~ $re ]]; then
+      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${pop_version[@]}")"
     fi
 
-    apt install -y "qemu-kvm" "virt-manager" "virt-viewer" "libvirt-daemon-system" "libvirt-clients" "bridge-utils" "swtpm" "mesa-utils" "git" "ninja-build" "nasm" "iasl" "pkg-config" "libglib2.0-dev" "libpixman-1-dev" "meson" "build-essential" "uuid-dev" "python-is-python3" "libspice-protocol-dev" >> $logFile 2>&1
+    apt install -y "${debian_depends[@]}" >> $logFile 2>&1
+
   elif [[ -e /etc/system-release ]]; then
-    if [[ $NAME == "AlmaLinux" ]] && [[ $VERSION_ID != "9.1" ]]; then
-      echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] This script is only verified to work on AlmaLinux Version ${YELLOW}9.1${DEFAULT}"
-      exit 0
-    elif [[ $NAME =~ "Fedora" ]] && [[ $VERSION_ID != @("36"|"37") ]]; then
-      echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] This script is only verified to work on Fedora Versions ${YELLOW}36 & 37${DEFAULT}"
-      exit 0
+    if [[ $NAME == "AlmaLinux" ]] && [[ ${alma_version[*]} =~ $re ]]; then
+      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${alma_version[@]}")"
+    elif [[ $NAME =~ "Fedora" ]] && [[ ${fedora_version[*]} =~ $re ]]; then
+      logger error "This script is only verified to work on Fedora Versions $(printf "%s " "${fedora_version[@]}")"
     fi
 
     if [[ $NAME == "AlmaLinux" ]]; then
-      dnf --enablerepo=crb install -y "qemu-kvm" "virt-manager" "virt-viewer" "virt-install" "libvirt-daemon-config-network" "libvirt-daemon-kvm" "swtpm" "git" "make" "gcc" "g++" "ninja-build" "nasm" "iasl" "libuuid-devel" "glib2-devel" "pixman-devel" "spice-protocol" >> $logFile 2>&1
+      dnf --enablerepo=crb install -y "${alma_depends[@]}" >> $logFile 2>&1
     elif [[ $NAME =~ "Fedora" ]]; then
-      dnf install -y "qemu-kvm" "virt-manager" "virt-viewer" "virt-install" "libvirt-daemon-config-network" "libvirt-daemon-kvm" "swtpm" "g++" "ninja-build" "nasm" "iasl" "libuuid-devel" "glib2-devel" "pixman-devel" "spice-protocol" "spice-server-devel" >> $logFile 2>&1
+      dnf install -y "${fedora_depends[@]}" >> $logFile 2>&1
     fi
   else
-    echo -e "${BLINKYELLOW}! ${DEFAULT}${RED}Cannot find distro!${DEFAULT}"
-    exit 0
+    logger error "Cannot find distro!"
   fi
 
   # Fedora and Alma don't have libvirt-qemu for some reason?
-  if [[ $NAME =~ "Fedora" ]] || [[ $NAME == "AlmaLinux" ]]; then
-    groupName=$SUDO_USER
-  else
-    groupName="libvirt-qemu"
-  fi
+  case "$NAME" in
+	  Fedora|AlmaLinux) groupName=$SUDO_USER ;;
+	  *) groupName="libvirt-qemu" ;;
+  esac
 
   # If dir doesn't exist then create it
   if [[ ! -e $ISOPath ]]; then
@@ -155,8 +267,8 @@ function InstallPackages()
 
   # Download VirtIO Drivers
   if [[ ! -e $ISOPath/virtio-win.iso ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Downloading VirtIO Drivers ISO..."
-    wget -P $ISOPath https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso 2>&1 | grep -i "error" >> $logFile 2>&1
+    logger info "Downloading VirtIO Drivers ISO..."
+    wget -P $ISOPath "$virtIO_url" 2>&1 | grep -i "error" >> $logFile 2>&1
   fi
 }
 
@@ -172,7 +284,7 @@ function SecurityChecks()
   # Disable AppArmor
   if [[ $NAME == @("Ubuntu"|"Pop!_OS"|"Linux Mint") ]] && [[ ! -e /etc/apparmor.d/disable/usr.sbin.libvirtd ]]; then
     firstInstall="true" # NEEDED TO FIX DEBIAN-BASED DISTROS USING VIRT-MANAGER
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Disabling AppArmor permanently for this distro"
+    logger info "Disabling AppArmor permanently for this distro"
     ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/ >> $logFile 2>&1
     apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd >> $logFile 2>&1
   fi
@@ -181,7 +293,7 @@ function SecurityChecks()
   if [[ $NAME =~ "Fedora" ]] || [[ $NAME == "AlmaLinux" ]]; then
     source /etc/selinux/config
     if [[ $SELINUX == "enforcing" ]]; then
-      echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Disabling SELinux permanently for this distro"
+      logger info "Disabling SELinux permanently for this distro"
       setenforce 0 >> $logFile 2>&1
       sed -i "s/SELINUX=enforcing/SELINUX=disabled/" /etc/selinux/config >> $logFile 2>&1
     fi
@@ -197,13 +309,13 @@ function CompileChecks()
 
   # Compile Spoofed QEMU & EDK2 OVMF
   if [[ ! -e $qemuDir/build/qemu-system-x86_64 ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Starting QEMU compile... please wait."
+    logger info "Starting QEMU compile... please wait."
     echo 0 > /etc/sGPUpt/install-status.txt
     QemuCompile
   fi
 
   if [[ ! -e $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Starting EDK2 compile... please wait."
+    logger info "Starting EDK2 compile... please wait."
     EDK2Compile
   fi
 
@@ -217,14 +329,12 @@ function CompileChecks()
     ln -s $qemuDir/build/qemu-system-x86_64 /etc/sGPUpt/qemu-system-x86_64 >> $logFile 2>&1
   fi
 
-  # If both builds didn't succeed then don't exit
   if [[ ! -e $qemuDir/build/qemu-system-x86_64 ]] && [[ ! -e $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${RED}Failed to compile? Check the log file.${DEFAULT}"
-    exit 0
+    logger error "Failed to compile? Check the log file."
   fi
 
   if (( $(cat /etc/sGPUpt/install-status.txt) == 0 )); then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Finished compiling, installing compiled output..."
+    logger info "Finished compiling, installing compiled output..."
     cd $qemuDir >> $logFile 2>&1
     make install >> $logFile 2>&1 # may cause an issue ~ host compains about "Host does not support virtualization"
     echo 1 > /etc/sGPUpt/install-status.txt
@@ -298,8 +408,7 @@ function QuerySysInfo()
   elif [[ $CPUBrand == "GenuineIntel" ]]; then
     SysType="Intel"
   else
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${RED}Failed to find CPU brand.${DEFAULT}"
-    exit 0
+    logger error "Failed to find CPU brand."
   fi
 
   # Core + Thread Pairs
@@ -319,8 +428,7 @@ function QuerySysInfo()
 
   # Stop the script if we have more than one GPU in the system
   if (( $(lspci | grep "VGA" | wc -l) > 1 )); then
-    echo -e "${BLINKYELLOW}! ${RED}ERROR: There are too many GPUs in the system!${DEFAULT}"
-    exit 0
+    logger error "There are too many GPUs in the system!"
   fi
 
   # Determine which GPU type
@@ -336,19 +444,17 @@ function QuerySysInfo()
 
   # Stop the script if we don't have any GPU on the system
   if [[ -z $GPUVideo ]] || [[ -z $GPUAudio ]]; then
-    echo -e "${BLINKYELLOW}! ${RED}ERROR: Couldn't find any GPU on the system...${DEFAULT}"
-    exit 0
+    logger error "Couldn't find any GPU on the system..."
   fi
 
   # If we fail to fill $GPUName
   if [[ -z $GPUName ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${RED}Failed to find GPU name, do you have drivers installed?.${DEFAULT}"
+    logger error "Failed to find GPU name. Do you have drivers installed?"
   fi
 
-  read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Is this the correct GPU? [ $GPUName ]") [y/N]: " CHOICE
+  read -p "$(logger info "Is this the correct GPU? [ $GPUName ]") [y/N]: " CHOICE
   if [[ $CHOICE != @("y"|"Y") ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${RED}Please report this if your GPU wasn't detected correctly!'${DEFAULT}"
-    exit 0
+    logger error "Please report this if your GPU wasn't detected correctly!"
   fi
 
   # Find all USB Controllers
@@ -356,8 +462,7 @@ function QuerySysInfo()
 
   # Stop the script if we don't have any USB on the system
   if [[ -z $aUSB ]]; then
-    echo -e "${BLINKYELLOW}! ${RED}ERROR: Couldn't find any USB controllers on the system...${DEFAULT}"
-    exit 0
+    logger error "Couldn't find any USB controllers on the system..."
   fi
 
   # CPU topology
@@ -367,19 +472,19 @@ function QuerySysInfo()
 
   # Get the hosts total memory to split for the VM
   SysMem=$(free -g | grep -oP '\d+' | head -n 1)
-  if (( $SysMem > 120 )); then
+  if [[ $SysMem -gt 120 ]]; then
     vMem="65536"
-  elif (( $SysMem > 90 )); then
+  elif [[ $SysMem -gt 90 ]]; then
     vMem="49152"
-  elif (( $SysMem > 60 )); then
+  elif [[ $SysMem -gt 60 ]]; then
     vMem="32768"
-  elif (( $SysMem > 30 )); then
+  elif [[ $SysMem -gt 30 ]]; then
     vMem="16384"
-  elif (( $SysMem > 20 )); then
+  elif [[ $SysMem -gt 20 ]]; then
     vMem="12288"
-  elif (( $SysMem > 14 )); then
+  elif [[ $SysMem -gt 14 ]]; then
     vMem="8192"
-  elif (( $SysMem > 10 )); then
+  elif [[ $SysMem -gt 10 ]]; then
     vMem="6144"
   else
     vMem="4096"
@@ -439,9 +544,9 @@ function SetupHooks()
 
   # Is this the first time we're creating hooks for this VM?
   if [[ ! -e $pHookVM ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Creating passthrough hooks..."
+    logger info "Creating passthrough hooks..."
   else
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Recreating passthrough hooks..."
+    logger info "Recreating passthrough hooks..."
   fi
 
   # Create start.sh & end.sh
@@ -459,23 +564,25 @@ CreateHooks()
   chmod +x $fHook >> $logFile 2>&1
 
   # https://github.com/PassthroughPOST/VFIO-Tools/blob/master/libvirt_hooks/qemu
-  echo -e "#!/bin/bash"                                                                       >> $fHook
-  echo -e "GUEST_NAME=\"\$1\""                                                                >> $fHook
-  echo -e "HOOK_NAME=\"\$2\""                                                                 >> $fHook
-  echo -e "STATE_NAME=\"\$3\""                                                                >> $fHook
-  echo -e "MISC=\"\${@:4}\"\n"                                                                >> $fHook
-  echo -e "BASEDIR=\"\$(dirname \$0)\""                                                       >> $fHook
-  echo -e "HOOKPATH=\"\$BASEDIR/qemu.d/\$GUEST_NAME/\$HOOK_NAME/\$STATE_NAME\"\n"             >> $fHook
-  echo -e "set -e\n"                                                                          >> $fHook
-  echo -e "if [ -f \"\$HOOKPATH\" ] && [ -s \"\$HOOKPATH\" ] && [ -x \"\$HOOKPATH\" ]; then"  >> $fHook
-  echo -e "  eval \\\"\$HOOKPATH\\\" \"\$@\""                                                 >> $fHook
-  echo -e "elif [ -d \"\$HOOKPATH\" ]; then"                                                  >> $fHook
-  echo -e "  while read file; do"                                                             >> $fHook
-  echo -e "    if [ ! -z \"\$file\" ]; then"                                                  >> $fHook
-  echo -e "      eval \\\"\$file\\\" \"\$@\""                                                 >> $fHook
-  echo -e "    fi"                                                                            >> $fHook
-  echo -e "  done <<< \"\$(find -L \"\$HOOKPATH\" -maxdepth 1 -type f -executable -print;)\"" >> $fHook
-  echo -e "fi"                                                                                >> $fHook
+	cat <<- 'DOC' >> $fHook
+	#!/bin/bash
+	GUEST_NAME="$1"
+	HOOK_NAME="$2"
+	STATE_NAME="$3"
+	MISC="${@:4}"
+	BASEDIR="$(dirname $0)"
+	HOOKPATH="$BASEDIR/qemu.d/$GUEST_NAME/$HOOK_NAME/$STATE_NAME"
+	set -e
+	if [ -f "$HOOKPATH" ] && [ -s "$HOOKPATH" ] && [ -x "$HOOKPATH" ]; then
+		eval "$HOOKPATH" "$@"
+	elif [ -d "$HOOKPATH" ]; then
+		while read file; do
+			if [ ! -z "$file" ]; then
+			eval "$file" "$@"
+			fi
+		done <<< "$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print;)"
+	fi
+	DOC
 }
 
 function StartScript()
@@ -485,26 +592,32 @@ function StartScript()
     mkdir -p $pHookVM/prepare/begin/ >> $logFile 2>&1
     touch    $pHookVM/prepare/begin/start.sh >> $logFile 2>&1
   fi
+	> $fHookStart
+	cat <<- DOC >> $fHookStart
+	#!/bin/bash
+	set -x
+	systemctl stop display-manager
+	for file in /sys/class/vtconsole/*; do"
+		if (( \$(grep -c \"frame buffer\" \$file/name) == 1 )); then
+			echo 0 > \$file/bind
+		fi
+	done
+	echo efi-framebuffer.0 > /sys/bus/platform/drivers/efi-framebuffer/unbind
+	virsh nodedev-detach pci_0000_$cGPUVideo
+	virsh nodedev-detach pci_0000_$cGPUAudio
+	DOC
 
-  > $fHookStart
-  echo -e "#!/bin/bash"                                                                       >> $fHookStart
-  echo -e "set -x\n"                                                                          >> $fHookStart
-  echo -e "systemctl stop display-manager\n"                                                  >> $fHookStart
-  echo -e "for file in /sys/class/vtconsole/*; do"                                            >> $fHookStart
-  echo -e "  if (( \$(grep -c \"frame buffer\" \$file/name) == 1 )); then"                    >> $fHookStart
-  echo -e "    echo 0 > \$file/bind"                                                          >> $fHookStart
-  echo -e "  fi"                                                                              >> $fHookStart
-  echo -e "done\n"                                                                            >> $fHookStart
-  echo -e "echo efi-framebuffer.0 > /sys/bus/platform/drivers/efi-framebuffer/unbind"         >> $fHookStart
-  echo -e "virsh nodedev-detach pci_0000_$cGPUVideo"                                          >> $fHookStart
-  echo -e "virsh nodedev-detach pci_0000_$cGPUAudio"                                          >> $fHookStart
-  for usb in ${aUSB[@]}; do
-    echo -e "virsh nodedev-detach pci_0000_$(echo $usb | tr :. _)"                            >> $fHookStart
-  done
-  echo -e "\nmodprobe vfio-pci\n"                                                             >> $fHookStart
-  echo -e "systemctl set-property --runtime -- user.slice AllowedCPUs=$ReservedCPUs"          >> $fHookStart
-  echo -e "systemctl set-property --runtime -- system.slice AllowedCPUs=$ReservedCPUs"        >> $fHookStart
-  echo -e "systemctl set-property --runtime -- init.scope AllowedCPUs=$ReservedCPUs"          >> $fHookStart
+	  for usb in ${aUSB[@]}; do
+	    echo -e "virsh nodedev-detach pci_0000_$(echo $usb | tr :. _)"
+	  done >> $fHookStart
+
+	cat <<- DOC >> $fHookStart
+
+	modprobe vfio-pci
+	systemctl set-property --runtime -- user.slice AllowedCPUs=$ReservedCPUs
+	systemctl set-property --runtime -- system.slice AllowedCPUs=$ReservedCPUs
+	systemctl set-property --runtime -- init.scope AllowedCPUs=$ReservedCPUs
+	DOC
 }
 
 function EndScript()
@@ -515,48 +628,57 @@ function EndScript()
     touch    $pHookVM/release/end/stop.sh >> $logFile 2>&1
   fi
 
-  > $fHookEnd
-  echo -e "#!/bin/bash"                                                                       >> $fHookEnd
-  echo -e "set -x\n"                                                                          >> $fHookEnd
-  echo -e "virsh nodedev-reattach pci_0000_$cGPUVideo"                                        >> $fHookEnd
-  echo -e "virsh nodedev-reattach pci_0000_$cGPUAudio"                                        >> $fHookEnd
+	> $fHookEnd
+	cat <<- DOC >> $fHookEnd
+	#!/bin/bash
+	set -x
+	virsh nodedev-reattach pci_0000_$cGPUVideo
+	virsh nodedev-reattach pci_0000_$cGPUAudio
+	DOC
+
   for usb in ${aUSB[@]}; do
-    echo -e "virsh nodedev-reattach pci_0000_$(echo $usb | tr :. _)"                          >> $fHookEnd
-  done
-  echo -e "\nsystemctl start display-manager\n"                                               >> $fHookEnd
-  echo -e "for file in /sys/class/vtconsole/*; do"                                            >> $fHookEnd
-  echo -e "  if (( \$(grep -c \"frame buffer\" \$file/name) == 1 )); then"                    >> $fHookEnd
-  echo -e "    echo 1 > \$file/bind"                                                          >> $fHookEnd
-  echo -e "  fi"                                                                              >> $fHookEnd
-  echo -e "done\n"                                                                            >> $fHookEnd
-  echo -e "systemctl set-property --runtime -- user.slice AllowedCPUs=$AllCPUs"               >> $fHookEnd
-  echo -e "systemctl set-property --runtime -- system.slice AllowedCPUs=$AllCPUs"             >> $fHookEnd
-  echo -e "systemctl set-property --runtime -- init.scope AllowedCPUs=$AllCPUs"               >> $fHookEnd
+    echo -e "virsh nodedev-reattach pci_0000_$(echo $usb | tr :. _)"
+  done >> $fHookEnd
+
+	cat <<- DOC >> $fHookEnd
+	systemctl start display-manager
+	for file in /sys/class/vtconsole/*; do
+			if (( \$(grep -c "frame buffer" \$file/name) == 1 )); then
+				echo 1 > \$file/bind
+			fi
+		done
+	systemctl set-property --runtime -- user.slice AllowedCPUs=$AllCPUs
+	systemctl set-property --runtime -- system.slice AllowedCPUs=$AllCPUs
+	systemctl set-property --runtime -- init.scope AllowedCPUs=$AllCPUs
+	DOC
 }
 
 function vNetworkCheck()
 {
   # If '$netName' doesn't exist then create it!
   if [[ $(virsh net-autostart $netName 2>&1) = *"Network not found"* ]]; then
-    > $netPath
-    echo -e "<network>"                                                                       >> $netPath
-    echo -e "  <name>$netName</name>"                                                         >> $netPath
-    echo -e "  <forward mode=\"nat\">"                                                        >> $netPath
-    echo -e "    <nat>"                                                                       >> $netPath
-    echo -e "      <port start=\"1024\" end=\"65535\"/>"                                      >> $netPath
-    echo -e "    </nat>"                                                                      >> $netPath
-    echo -e "  </forward>"                                                                    >> $netPath
-    echo -e "  <ip address=\"192.168.122.1\" netmask=\"255.255.255.0\">"                      >> $netPath
-    echo -e "    <dhcp>"                                                                      >> $netPath
-    echo -e "      <range start=\"192.168.122.2\" end=\"192.168.122.254\"/>"                  >> $netPath
-    echo -e "    </dhcp>"                                                                     >> $netPath
-    echo -e "  </ip>"                                                                         >> $netPath
-    echo -e "</network>"                                                                      >> $netPath
+
+	> $netPath
+	cat <<- DOC >> $netPath
+	<network>
+		<name>$netName</name>
+		<forward mode="nat">
+			<nat>
+			  <port start="1024" end="65535"/>
+		</nat>
+	</forward>
+	<ip address=192.168.122.1 netmask=255.255.255.0>
+		<dhcp>
+		  <range start=192.168.122.2 end=192.168.122.254/>
+		</dhcp>
+		</ip>
+	</network>
+	DOC
 
     virsh net-define $netPath >> $logFile 2>&1
     rm $netPath >> $logFile 2>&1
 
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Network Manually Created"
+    logger info "Network manually created"
   fi
 
   # set autostart on network '$netName' in case it wasn't already on for some reason
@@ -575,13 +697,13 @@ function SetupLibvirt()
   # If group doesn't exist then create it
   if [[ -z $(getent group libvirt) ]]; then
     groupadd libvirt >> $logFile 2>&1
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Created libvirt group"
+    logger info "Created libvirt group"
   fi
 
   # If either user isn't in the group then add all of them again
   if [[ -z $(groups $SUDO_USER | grep libvirt | grep kvm | grep input) ]]; then
     usermod -aG libvirt,kvm,input $SUDO_USER >> $logFile 2>&1
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Added user ${YELLOW}$SUDO_USER${DEFAULT} to groups ${YELLOW}libvirt,kvm,input${DEFAULT}"
+    logger info "Added user '$SUDO_USER' to groups 'libvirt,kvm,input'"
   fi
 
   # Allow users in group libvirt to use virt-manager /etc/libvirt/libvirtd.conf
@@ -622,7 +744,7 @@ function CreateVM()
 {
   # Overwrite protection for existing VM configurations
   if [[ -e /etc/libvirt/qemu/$VMName.xml ]]; then
-    echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Will not overwrite an existing VM Config!"
+    logger info "sGPUpt Will not overwrite an existing VM Config!"
     return
   fi
 
@@ -633,7 +755,7 @@ function CreateVM()
 
   # Disk img doesn't exist then create it
   if [[ ! -e $DiskPath/$VMName.qcow2 ]]; then
-    read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Do you want to create a drive named ${YELLOW}${VMName}${DEFAULT}")? [y/N]: " CHOICE
+    read -p "$(logger info "Do you want to create a drive named ${VMName}${DEFAULT}")? [y/N]: " CHOICE
     if [[ $CHOICE == @("y"|"Y") ]]; then
       HandleDisk
     fi
@@ -654,7 +776,7 @@ function CreateVM()
   Emulator="/etc/sGPUpt/qemu-system-x86_64"
   cp $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_VARS.fd $OVMF_VARS
 
-  echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Creating VM [ Type:${YELLOW}\"$SysType${YELLOW}\"${DEFAULT}, Name:${YELLOW}\"$VMName\"${DEFAULT}, vCPU:${YELLOW}\"$vCPU\"${DEFAULT}, Mem:${YELLOW}\"$vMem"\M"\"${DEFAULT}, Disk:${YELLOW}\"${DiskSize}G\"${DEFAULT}, QEMU-V:${YELLOW}\"$vQEMU\"${DEFAULT} ]"
+  logger info "Creating VM [ Type:\"$SysType\", Name:\"$VMName\", vCPU:\"$vCPU\", Mem:\"$vMem"\M"\", Disk:\"${DiskSize}G\", QEMU-V:\"$vQEMU\" ]"
 
   virt-install \
   --connect qemu:///system \
@@ -695,7 +817,7 @@ function CreateVM()
   InsertCPUPinning
   InsertUSB
 
-  echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Finished creating ${YELLOW}$VMName${DEFAULT}!"
+  logger success "Finished creating $VMName!"
 }
 
 function HandleDisk()
@@ -715,7 +837,7 @@ function InsertSpoofedBoard()
 {
   ASUSMotherboards
 
-  echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${YELLOW}$VMName${DEFAULT}: Spoofing Motherboard [ ${CYAN}$BaseBoardProduct${DEFAULT} ]"
+  logger info "Spoofing motherboard"
 
   virt-xml $VMName --add-device --sysinfo bios.vendor="$BIOSVendor",bios.version="$BIOSRandVersion",bios.date="$BIOSDate",bios.release="$BIOSRandRelease" >> $logFile 2>&1
   virt-xml $VMName --add-device --sysinfo system.manufacturer="$SystemManufacturer",system.product="$SystemProduct",system.version="$SystemVersion",system.serial="$SystemRandSerial",system.uuid="$SystemUUID",system.sku="$SystemSku",system.family="$SystemFamily" >> $logFile 2>&1
@@ -726,7 +848,7 @@ function InsertSpoofedBoard()
 
 function InsertCPUPinning()
 {
-  echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${YELLOW}$VMName${DEFAULT}: Adding CPU Pinning for [ ${RED}$CPUName${DEFAULT} ]..."
+  logger info "Adding CPU Pinning for [ $CPUName ]..."
   for (( i=0; i<$vCPU; i++ )); do
     virt-xml $VMName --edit --cputune="vcpupin$i.vcpu=$i,vcpupin$i.cpuset=${aCPU[$i]}" >> $logFile 2>&1
   done
@@ -734,7 +856,7 @@ function InsertCPUPinning()
 
 function InsertUSB()
 {
-  echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${YELLOW}$VMName${DEFAULT}: Adding all USB Controllers..."
+  logger info "Adding all USB Controllers...."
   for usb in ${aUSB[@]}; do
     virt-xml $VMName --add-device --host-device="pci_0000_$(echo $usb | tr :. _)" >> $logFile 2>&1
   done
@@ -743,25 +865,26 @@ function InsertUSB()
 function ASUSMotherboards()
 {
   ASUSBoards=(
-  "TUF GAMING X570-PRO WIFI II" \
-  "TUF GAMING X570-PLUS (WI-FI)" \
-  "TUF GAMING X570-PLUS" \
-  "PRIME X570-PRO" \
-  "PRIME X570-PRO/CSM" \
-  "PRIME X570-P" \
-  "PRIME X570-P/CSM" \
-  "ROG CROSSHAIR VIII EXTREME" \
-  "ROG CROSSHAIR VIII DARK HERO" \
-  "ROG CROSSHAIR VIII FORMULA" \
-  "ROG CROSSHAIR VIII HERO (WI-FI)" \
-  "ROG CROSSHAIR VIII HERO" \
-  "ROG CROSSHAIR VIII IMPACT" \
-  "ROG STRIX X570-E GAMING WIFI II" \
-  "ROG STRIX X570-E GAMING" \
-  "ROG STRIX X570-F GAMING" \
-  "ROG STRIX X570-I GAMING" \
-  "PROART X570-CREATOR WIFI" \
-  "PRO WS X570-ACE" )
+  "TUF GAMING X570-PRO WIFI II"
+  "TUF GAMING X570-PLUS (WI-FI)"
+  "TUF GAMING X570-PLUS"
+  "PRIME X570-PRO"
+  "PRIME X570-PRO/CSM"
+  "PRIME X570-P"
+  "PRIME X570-P/CSM"
+  "ROG CROSSHAIR VIII EXTREME"
+  "ROG CROSSHAIR VIII DARK HERO"
+  "ROG CROSSHAIR VIII FORMULA"
+  "ROG CROSSHAIR VIII HERO (WI-FI)"
+  "ROG CROSSHAIR VIII HERO"
+  "ROG CROSSHAIR VIII IMPACT"
+  "ROG STRIX X570-E GAMING WIFI II"
+  "ROG STRIX X570-E GAMING"
+  "ROG STRIX X570-F GAMING"
+  "ROG STRIX X570-I GAMING"
+  "PROART X570-CREATOR WIFI"
+  "PRO WS X570-ACE"
+  )
 
   BIOSVendor="American Megatrends Inc."
   BIOSDate=$(shuf -i 1-12 -n 1)/$(shuf -i 1-31 -n 1)/$(shuf -i 2015-2023 -n 1)
