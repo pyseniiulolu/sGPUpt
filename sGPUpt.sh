@@ -63,8 +63,10 @@ function header(){
   blen=$(<<< $rep wc -m)
   row=$((blen+3))
   tlen=$(<<< $tag wc -m)
-  tlen=$((tlen-34))
-  pad=$((blen-tlen-1))
+  clen=$(echo -n "${RED}" | wc -m)
+  dlen=$(echo -n "${DEFAULT}" | wc -m)
+  tlen=$((tlen-((clen*2))-((dlen*2))))
+  pad=$((row-tlen))
   border(){
      printf "\n"
      for((i=0;i<$row;i++)); do
