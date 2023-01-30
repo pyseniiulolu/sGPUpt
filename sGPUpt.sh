@@ -58,12 +58,23 @@ virtIO_url="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/sta
 function header(){
   #TODO: parameterize offset width
   url="https://github.com/$author/$tool/issues"
-  printf "\n"
-  printf "#%.0s" {1..61}
-  printf "\n# ${RED}♥${DEFAULT} %s ${RED}♥${DEFAULT}%30s %14s#\n" "$tool made by $author"
-  printf "# Report issues @ %s %14s#" "$url"
-  printf "\n"
-  printf "#%.0s" {1..61}
+  rep="Report issues @ $url"
+  tag="# ${RED}♥${DEFAULT} $tool made by $author ${RED}♥${DEFAULT}"
+  blen=$(<<< $rep wc -m)
+  row=$((blen+3))
+  tlen=$(<<< $tag wc -m)
+  tlen=$((tlen-34))
+  pad=$((blen-tlen-1))
+  border(){
+     printf "\n"
+     for((i=0;i<$row;i++)); do
+       printf "#"
+     done
+  }
+  border
+  printf "\n%s%${pad}s#\n" "$tag"
+  printf "# %s #" "$rep"
+  border
   printf "\n"
 }
 function logger(){
@@ -241,7 +252,7 @@ function InstallPackages()
     if [[ $NAME == "AlmaLinux" ]] && [[ ! ${alma_version[*]} =~ $re ]]; then
       logger error "This script is only verified to work on $NAME Version $(printf "%s " "${alma_version[@]}")"
     elif [[ $NAME =~ "Fedora" ]] && [[ ! ${fedora_version[*]} =~ $re ]]; then
-      logger error "This script is only verified to work on Fedora Versions $(printf "%s " "${fedora_version[@]}")"
+      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${fedora_version[@]}")"
     fi
 
     if [[ $NAME == "AlmaLinux" ]]; then
@@ -780,7 +791,7 @@ function CreateVM()
   fi
 
   case $CHOICE in
-    y|Y) HandleDisk 
+    y|Y) HandleDisk
       disk_pretty=" Disk:\"${DiskSize}G\", "
       ;;
     ""|N) disk_pretty=" "
@@ -934,5 +945,4 @@ function ASUSMotherboards()
   oemStrings0="Default string"
   oemStrings1="TEQUILA"
 }
-
 main
