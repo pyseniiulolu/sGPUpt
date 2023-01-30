@@ -5,22 +5,24 @@ version=0.1.0
 author=lexi-src
 tool=sGPUpt
 
-PURPLE='\033[0;35m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-WHITE='\033[0;37m'
-BLACK='\033[0;30m'
-DEFAULT='\033[0m'
+#TODO: add keys and codes into associative array
+PURPLE=$(tput setaf 5)
+BLUE=$(tput setaf 4)
+CYAN=$(tput setaf 6)
+GREEN=$(tput setaf 2)
+YELLOW=$(tput setaf 3)
+RED=$(tput setaf 1)
+WHITE=$(tput setaf 8)
+BLACK=$(tput setaf 0)
+DEFAULT=$(tput sgr0)
 
-WHITEBG='\033[0;30;47m'
-RESETBG='\033[0m'
+WHITEBG=$(tput smso)
+RESETBG=$(tput sgr0)
+UNDERLINE=$(tput smul)
 
-BLINKYELLOW='\033[1;33m\033[5;33m'
-BLINKRED='\033[0;31m\033[5;31m'
-UNDERLINE='\033[0m\033[4;37m'
+#deprecated
+#BLINKYELLOW='\033[1;33m\033[5;33m'
+#BLINKRED='\033[0;31m\033[5;31m'
 
 # Main Vars
 VMName=$1
@@ -54,11 +56,12 @@ tab="$(printf '\t')"
 virtIO_url="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
 
 function header(){
+  #TODO: parameterize offset width
   url="https://github.com/$author/$tool/issues"
   printf "\n"
   printf "#%.0s" {1..61}
-  printf "\n# ♥ %s ♥%30s #\n" "$tool made by $author"
-  printf "# Report issues @ %s #" "$url"
+  printf "\n# ${RED}♥${DEFAULT} %s ${RED}♥${DEFAULT}%30s %14s#\n" "$tool made by $author"
+  printf "# Report issues @ %s %14s#" "$url"
   printf "\n"
   printf "#%.0s" {1..61}
   printf "\n"
@@ -84,12 +87,7 @@ function logger(){
       ;;
   esac
   printf "%s${!col}[%s]${DEFAULT} %s\n" "$pref" $flag "$2"
-  case "$1" in
-    warn|error)
-	    header
-	    exit 1
-	    ;;
-  esac
+  [[ "$1" == "error" ]] && exit 1
 }
 
 function main()
@@ -129,10 +127,11 @@ function main()
 
   # NEEDED TO FIX DEBIAN-BASED DISTROS USING VIRT-MANAGER
   if [[ $firstInstall == "true" ]]; then
-    read -p "A reboot is required for this distro, reboot now? [Y/n]: " CHOICE
-    if [[ $CHOICE == @("y"|"Y") ]]; then
-      reboot
-    fi
+    read -p "$(logger info "A reboot is required for this distro, reboot now? [Y/n]: ")" CHOICE
+    case "$CHOICE" in
+	    y|Y) reboot ;;
+	    "") reboot ;;
+    esac
   fi
 }
 
@@ -280,37 +279,42 @@ function SecurityChecks()
   # targets home systems it's well worth the trade-off to disable security for ease of use.  #
   #                                                                                          #
   ############################################################################################
-
+  local armor="/etc/apparmor.d/usr/sbin.libvirtd"
   # Disable AppArmor
   if [[ $NAME == @("Ubuntu"|"Pop!_OS"|"Linux Mint") ]] && [[ ! -e /etc/apparmor.d/disable/usr.sbin.libvirtd ]]; then
     firstInstall="true" # NEEDED TO FIX DEBIAN-BASED DISTROS USING VIRT-MANAGER
     logger info "Disabling AppArmor permanently for this distro"
-    ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/ >> $logFile 2>&1
-    apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd >> $logFile 2>&1
+    ln -s "$armor" /etc/apparmor.d/disable/ >> $logFile 2>&1
+    apparmor_parser -R "$armor" >> $logFile 2>&1
   fi
 
   # Disable SELinux
+  local se_config="/etc/selinux/config"
   if [[ $NAME =~ "Fedora" ]] || [[ $NAME == "AlmaLinux" ]]; then
-    source /etc/selinux/config
+    source "$se_config"
     if [[ $SELINUX == "enforcing" ]]; then
       logger info "Disabling SELinux permanently for this distro"
       setenforce 0 >> $logFile 2>&1
-      sed -i "s/SELINUX=enforcing/SELINUX=disabled/" /etc/selinux/config >> $logFile 2>&1
+      sed -i "s/SELINUX=enforcing/SELINUX=disabled/" "$se_config" >> $logFile 2>&1
     fi
   fi
 }
 
 function CompileChecks()
 {
+  local status_file="/etc/sGPUpt/install-status.txt"
+  stat(){
+    echo "$1" > "$status_file"
+  }
   # Create a file for checking if the compiled qemu was previously installed.
-  if [[ ! -e /etc/sGPUpt/install-status.txt ]]; then
-    touch /etc/sGPUpt/install-status.txt
+  if [[ ! -e "$status_file" ]]; then
+    touch "$status_file"
   fi
 
   # Compile Spoofed QEMU & EDK2 OVMF
   if [[ ! -e $qemuDir/build/qemu-system-x86_64 ]]; then
     logger info "Starting QEMU compile... please wait."
-    echo 0 > /etc/sGPUpt/install-status.txt
+    stat 0
     QemuCompile
   fi
 
@@ -333,11 +337,11 @@ function CompileChecks()
     logger error "Failed to compile? Check the log file."
   fi
 
-  if (( $(cat /etc/sGPUpt/install-status.txt) == 0 )); then
+  if (( $(cat "$status_file") == 0 )); then
     logger info "Finished compiling, installing compiled output..."
     cd $qemuDir >> $logFile 2>&1
     make install >> $logFile 2>&1 # may cause an issue ~ host compains about "Host does not support virtualization"
-    echo 1 > /etc/sGPUpt/install-status.txt
+    stat 1
   fi
 
   vQEMU=$(/etc/sGPUpt/qemu-system-x86_64 --version | head -n 1 | awk '{print $4}')
@@ -432,13 +436,14 @@ function QuerySysInfo()
   fi
 
   # Determine which GPU type
+  local lsp=$(lspci)
   if [[ $GPUType == "NVIDIA" ]]; then
-    GPUVideo=$(lspci | grep "NVIDIA" | grep "VGA" | cut -d" " -f1)
-    GPUAudio=$(lspci | grep "NVIDIA" | grep "Audio" | cut -d" " -f1)
+    GPUVideo=$(<<< "$lsp" grep "NVIDIA" | grep "VGA" | cut -d" " -f1)
+    GPUAudio=$(<<< "$lsp" grep "NVIDIA" | grep "Audio" | cut -d" " -f1)
     GPUName=${GREEN}$(glxinfo -B | grep "renderer string" | cut -d":" -f2 | cut -c2- | cut -d"/" -f1)${DEFAULT}
   elif [[ $GPUType == "AMD" ]]; then
-    GPUVideo=$(lspci | grep "AMD/ATI" | grep "VGA" | cut -d" " -f1)
-    GPUAudio=$(lspci | grep "AMD/ATI" | grep "Audio" | cut -d" " -f1)
+    GPUVideo=$(<<< "$lsp" grep "AMD/ATI" | grep "VGA" | cut -d" " -f1)
+    GPUAudio=$(<<< "$lsp" grep "AMD/ATI" | grep "Audio" | cut -d" " -f1)
     GPUName=${RED}$(glxinfo -B | grep "renderer string" | cut -d":" -f2 | cut -c2- | cut -d"(" -f1 | head -c -2)${DEFAULT}
   fi
 
@@ -449,7 +454,7 @@ function QuerySysInfo()
 
   # If we fail to fill $GPUName
   if [[ -z $GPUName ]]; then
-    logger error "Failed to find GPU name. Do you have drivers installed?"
+    logger warn "Failed to find GPU name. Do you have drivers installed?"
   fi
 
   read -p "$(logger info "Is this the correct GPU? [ $GPUName ]") [y/N]: " CHOICE
@@ -494,45 +499,48 @@ function QuerySysInfo()
   cGPUVideo=$(echo $GPUVideo | tr :. _)
   cGPUAudio=$(echo $GPUAudio | tr :. _)
 
-echo -e "[\"Query Result\"]
-{
-  \"System Conf\":[
-  {
-    \"CPU\":[
-    {
-      \"ID\":\"$CPUBrand\",
-      \"Name\":\"$CPUName\",
-      \"CPU Pinning\": [ \"${aCPU[@]}\" ]
-    }],
+	cat <<- DOC >> $logFile
+	["Query Result"]
+	{
+	  "System Conf":[
+	  {
+	    "CPU":[
+	    {
+	      "ID":"$CPUBrand",
+	      "Name":"$CPUName",
+	      "CPU Pinning": [ "${aCPU[@]}" ]
+	    }],
 
-    \"Sys.Memory\":\"$SysMem\",
+	    "Sys.Memory":"$SysMem",
 
-    \"Isolation\":[
-    {
-      \"ReservedCPUs\":\"$ReservedCPUs\",
-      \"AllCPUs\":\"$AllCPUs\"
-    }],
+	    "Isolation":[
+	    {
+	      "ReservedCPUs":"$ReservedCPUs",
+	      "AllCPUs":"$AllCPUs"
+	    }],
 
-    \"PCI\":[
-    {
-      \"GPU Name\":\"$(echo -e $GPUName | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g")\",
-      \"GPU Video\":\"$GPUVideo\",
-      \"GPU Audio\":\"$GPUAudio\",
-      \"USB IDs\": [ ${aUSB[@]} ]
-    }],
-  }],
+	    "PCI":[
+	    {
+	      "GPU Name":"$(<<< $GPUName sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g")",
+	      "GPU Video":"$GPUVideo",
+	      "GPU Audio":"$GPUAudio",
+	      "USB IDs": [ ${aUSB[@]} ]
+	    }],
+	  }],
 
-  \"Virt Conf\":[
-  {
-    \"vCPUs\":\"$vCPU\",
-    \"vCores\":\"$vCore\",
-    \"vThreads\":\"$vThread\",
-    \"vMem\":\"$vMem\",
-    \"Converted GPU Video\":\"$cGPUVideo\",
-    \"Converted GPU Audio\":\"$cGPUAudio\",
-    \"USB IDs\": [ $(echo ${aUSB[@]} | tr :. _) ]
-  }]
-}\n" >> $logFile
+	  "Virt Conf":[
+	  {
+	    "vCPUs":"$vCPU",
+	    "vCores":"$vCore",
+	    "vThreads":"$vThread",
+	    "vMem":"$vMem",
+	    "Converted GPU Video":"$cGPUVideo",
+	    "Converted GPU Audio":"$cGPUAudio",
+	    "USB IDs": [ $(echo ${aUSB[@]} | tr :. _) ]
+	  }]
+	}
+
+	DOC
 }
 
 function SetupHooks()
@@ -755,14 +763,14 @@ function CreateVM()
 
   # Disk img doesn't exist then create it
   if [[ ! -e $DiskPath/$VMName.qcow2 ]]; then
-    read -p "$(logger info "Do you want to create a drive named ${VMName}${DEFAULT}")? [y/N]: " CHOICE
+    read -p "$(logger info "Do you want to create a drive named ${VMName}${DEFAULT}? [y/N]: ")" CHOICE
     if [[ $CHOICE == @("y"|"Y") ]]; then
       HandleDisk
     else
       DiskSize=$DefaultDiskSize
     fi
   else
-    read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Do you want to ${RED}overwrite${DEFAULT} a drive named ${YELLOW}${VMName}${DEFAULT}")? [y/N]: " CHOICE
+	  read -p "$(logger info "Do you want to overwrite a drive named ${VMName}? [y/N]: ")" CHOICE
     if [[ $CHOICE == @("y"|"Y") ]]; then
       HandleDisk
     else
@@ -826,7 +834,7 @@ function CreateVM()
 
 function HandleDisk()
 {
-  read -p "$(echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] Size of disk?") [GB]: " DiskSize
+  read -p "$(logger info "Size of disk? [GB]: ")" DiskSize
   if [[ ! $DiskSize =~ ^[0-9]+$ ]] || (( $DiskSize < 1 )); then
     DiskSize=$DefaultDiskSize
   fi
