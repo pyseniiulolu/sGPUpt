@@ -234,32 +234,35 @@ function InstallPackages()
   fedora_version=("36" "37")
   local re="\\b$VERSION_ID\\b"
 
+  testVersions(){
+    local -n arr="${1}_version"
+    if [[ ! ${arr[*]} =~ $re ]]; then
+      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${arr[@]}")"
+    fi
+  }
+
   # Which Distro
   if [[ -e /etc/arch-release ]]; then
     yes | pacman -S --needed "${arch_depends[@]}" >> $logFile 2>&1
   elif [[ -e /etc/debian_version ]]; then
-    if [[ $NAME == "Ubuntu" ]] && [[ ! ${ubuntu_version[*]} =~ $re ]]; then
-      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${ubuntu_version[@]}")"
-    elif [[ $NAME == "Linux Mint" ]] && [[ ! ${mint_version[*]} =~ $re ]]; then
-      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${mint_version[@]}")"
-    elif [[ $NAME == "Pop!_OS" ]] && [[ ! ${pop_version[*]} =~ $re ]]; then
-      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${pop_version[@]}")"
-    fi
-
-    apt install -y "${debian_depends[@]}" >> $logFile 2>&1
-
+	  case $NAME in
+		  Ubuntu) arr=ubuntu ;;
+		  "Linux Mint") arr=mint ;;
+		  "Pop!_OS") arr=pop ;;
+	  esac
+	  testVersions "$arr"
+	  apt install -y "${debian_depends[@]}" >> $logFile 2>&1
   elif [[ -e /etc/system-release ]]; then
-    if [[ $NAME == "AlmaLinux" ]] && [[ ! ${alma_version[*]} =~ $re ]]; then
-      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${alma_version[@]}")"
-    elif [[ $NAME =~ "Fedora" ]] && [[ ! ${fedora_version[*]} =~ $re ]]; then
-      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${fedora_version[@]}")"
-    fi
-
-    if [[ $NAME == "AlmaLinux" ]]; then
-      dnf --enablerepo=crb install -y "${alma_depends[@]}" >> $logFile 2>&1
-    elif [[ $NAME =~ "Fedora" ]]; then
-      dnf install -y "${fedora_depends[@]}" >> $logFile 2>&1
-    fi
+	  case $NAME in
+		  AlmaLinux)
+			  testVersions "alma"
+			  dnf --enablerepo=crb install -y "${alma_depends[@]}" >> $logFile 2>&1
+			  ;;
+		  Fedora)
+			  testVersions "fedora"
+			  dnf install -y "${fedora_depends[@]}" >> $logFile 2>&1
+			  ;;
+	  esac
   else
     logger error "Cannot find distro!"
   fi
