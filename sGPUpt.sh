@@ -231,16 +231,16 @@ function InstallPackages()
       logger error "This script is only verified to work on $NAME Version $(printf "%s " "${ubuntu_version[@]}")"
     elif [[ $NAME == "Linux Mint" ]] && [[ ! ${mint_version[*]} =~ $re ]]; then
       logger error "This script is only verified to work on $NAME Version $(printf "%s " "${mint_version[@]}")"
-    elif [[ $NAME == "Pop!_OS" ]] && [[ ${pop_version[*]} =~ $re ]]; then
+    elif [[ $NAME == "Pop!_OS" ]] && [[ ! ${pop_version[*]} =~ $re ]]; then
       logger error "This script is only verified to work on $NAME Version $(printf "%s " "${pop_version[@]}")"
     fi
 
     apt install -y "${debian_depends[@]}" >> $logFile 2>&1
 
   elif [[ -e /etc/system-release ]]; then
-    if [[ $NAME == "AlmaLinux" ]] && [[ ${alma_version[*]} =~ $re ]]; then
+    if [[ $NAME == "AlmaLinux" ]] && [[ ! ${alma_version[*]} =~ $re ]]; then
       logger error "This script is only verified to work on $NAME Version $(printf "%s " "${alma_version[@]}")"
-    elif [[ $NAME =~ "Fedora" ]] && [[ ${fedora_version[*]} =~ $re ]]; then
+    elif [[ $NAME =~ "Fedora" ]] && [[ ! ${fedora_version[*]} =~ $re ]]; then
       logger error "This script is only verified to work on Fedora Versions $(printf "%s " "${fedora_version[@]}")"
     fi
 
