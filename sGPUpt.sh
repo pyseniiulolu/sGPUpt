@@ -770,7 +770,7 @@ function CreateVM()
 
   case $CHOICE in
     y|Y) HandleDisk 
-      disk_pretty=" Disk: \"$DiskSize\", "
+      disk_pretty=" Disk: \"${DiskSize}G\", "
       ;;
     ""|N) disk_pretty=" "
   esac
@@ -864,7 +864,7 @@ function InsertCPUPinning()
 
 function InsertUSB()
 {
-  logger info "Adding all USB Controllers...."
+  logger info "Adding USB Controllers...."
   for usb in ${aUSB[@]}; do
     virt-xml $VMName --add-device --host-device="pci_0000_$(echo $usb | tr :. _)" >> $logFile 2>&1
   done
