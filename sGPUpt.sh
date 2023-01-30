@@ -56,11 +56,12 @@ tab="$(printf '\t')"
 virtIO_url="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
 
 function header(){
+  #TODO: parameterize offset width
   url="https://github.com/$author/$tool/issues"
   printf "\n"
   printf "#%.0s" {1..61}
-  printf "\n# ♥ %s ♥%30s #\n" "$tool made by $author"
-  printf "# Report issues @ %s #" "$url"
+  printf "\n# ${RED}♥${DEFAULT} %s ${RED}♥${DEFAULT}%30s %14s#\n" "$tool made by $author"
+  printf "# Report issues @ %s %14s#" "$url"
   printf "\n"
   printf "#%.0s" {1..61}
   printf "\n"
