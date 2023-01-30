@@ -300,15 +300,19 @@ function SecurityChecks()
 
 function CompileChecks()
 {
+  local status_file="/etc/sGPUpt/install-status.txt"
+  stat(){
+    echo "$1" > "$status_file"
+  }
   # Create a file for checking if the compiled qemu was previously installed.
-  if [[ ! -e /etc/sGPUpt/install-status.txt ]]; then
-    touch /etc/sGPUpt/install-status.txt
+  if [[ ! -e "$status_file" ]]; then
+    touch "$status_file"
   fi
 
   # Compile Spoofed QEMU & EDK2 OVMF
   if [[ ! -e $qemuDir/build/qemu-system-x86_64 ]]; then
     logger info "Starting QEMU compile... please wait."
-    echo 0 > /etc/sGPUpt/install-status.txt
+    stat 0
     QemuCompile
   fi
 
@@ -331,11 +335,11 @@ function CompileChecks()
     logger error "Failed to compile? Check the log file."
   fi
 
-  if (( $(cat /etc/sGPUpt/install-status.txt) == 0 )); then
+  if (( $(cat "$status_file") == 0 )); then
     logger info "Finished compiling, installing compiled output..."
     cd $qemuDir >> $logFile 2>&1
     make install >> $logFile 2>&1 # may cause an issue ~ host compains about "Host does not support virtualization"
-    echo 1 > /etc/sGPUpt/install-status.txt
+    stat 1
   fi
 
   vQEMU=$(/etc/sGPUpt/qemu-system-x86_64 --version | head -n 1 | awk '{print $4}')
