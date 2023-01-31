@@ -452,14 +452,11 @@ function QuerySysInfo()
   fi
 
   # Determine which GPU type
-  local lsp=$(lspci)
   if [[ $GPUType == "NVIDIA" ]]; then
-    GPUVideo=$(<<< "$lsp" grep "NVIDIA" | grep "VGA" | cut -d" " -f1)
-    GPUAudio=$(<<< "$lsp" grep "NVIDIA" | grep "Audio" | cut -d" " -f1)
+    grepGPU="$GPUType"
     GPUName=${GREEN}$(glxinfo -B | grep "renderer string" | cut -d":" -f2 | cut -c2- | cut -d"/" -f1)${DEFAULT}
   elif [[ $GPUType == "AMD" ]]; then
-    GPUVideo=$(<<< "$lsp" grep "AMD/ATI" | grep "VGA" | cut -d" " -f1)
-    GPUAudio=$(<<< "$lsp" grep "AMD/ATI" | grep "Audio" | cut -d" " -f1)
+    grepGPU="AMD/ATI"
     GPUName=${RED}$(glxinfo -B | grep "renderer string" | cut -d":" -f2 | cut -c2- | cut -d"(" -f1 | head -c -2)${DEFAULT}
   fi
 
@@ -478,17 +475,8 @@ function QuerySysInfo()
     logger error "Please report this if your GPU wasn't detected correctly!"
   fi
   
-  if [[ $GPUVideo =~ "0000:" ]]; then
-    GPUVideo=$(echo ${GPUVideo//0000:/})
-    GPUAudio=$(echo ${GPUAudio//0000:/})
-  fi
-
-  # Find all USB Controllers
-  aUSB=$(<<< "$lsp" grep "USB" | awk '{printf $1 " "}' | head -c -1)
-
-  if [[ ${aUSB[@]} =~ "0000:" ]]; then
-    aUSB=$(echo ${aUSB[@]//0000:/})
-  fi
+  # Get passthrough devices
+  CheckIOMMUGroups
 
   # Stop the script if we don't have any USB on the system
   if [[ -z $aUSB ]]; then
@@ -522,10 +510,6 @@ function QuerySysInfo()
     vMem="4096"
   fi
 
-  # Convert ID
-  cGPUVideo=$(echo $GPUVideo | tr :. _)
-  cGPUAudio=$(echo $GPUAudio | tr :. _)
-
 	cat <<- DOC >> $logFile
 	["Query Result"]
 	{
@@ -549,8 +533,7 @@ function QuerySysInfo()
 	    "PCI":[
 	    {
 	      "GPU Name":"$(<<< $GPUName sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g")",
-	      "GPU Video":"$GPUVideo",
-	      "GPU Audio":"$GPUAudio",
+	      "GPU IDs": [ ${aGPU[@]} ],
 	      "USB IDs": [ ${aUSB[@]} ]
 	    }],
 	  }],
@@ -561,13 +544,67 @@ function QuerySysInfo()
 	    "vCores":"$vCore",
 	    "vThreads":"$vThread",
 	    "vMem":"$vMem",
-	    "Converted GPU Video":"$cGPUVideo",
-	    "Converted GPU Audio":"$cGPUAudio",
-	    "USB IDs": [ $(echo ${aUSB[@]} | tr :. _) ]
+	    "Converted GPU IDs ": [ ${aConvertedGPU[@]} ],
+	    "USB IDs": [ ${aConvertedUSB[@]} ]
 	  }]
 	}
 
 	DOC
+}
+
+function CheckIOMMUGroups()
+{
+  ((h=0, allocateGPUOnCycle=0))
+  for g in $(find /sys/kernel/iommu_groups/* -maxdepth 0 -type d | sort -V); do
+
+    # Check each device in the group to ensure that our target device is isolated properly
+    for d in $g/devices/*; do
+      deviceID=$(echo ${d##*/} | cut -c6-)
+      deviceOutput=$(lspci -nns $deviceID)
+
+      if [[ $deviceOutput =~ (VGA|Audio) ]] && [[ $deviceOutput =~ $GrepGPU ]]; then
+         aGPU[$h]=$deviceID
+         ((h++, allocateGPUOnCycle=1))
+      elif [[ $deviceOutput =~ (USB Controller) ]]; then
+         aUSB[$k]=$deviceID
+         ((k++))
+       else
+         ((miscDevice++))
+      fi
+    done
+
+    # If $aGPU was defined earlier but it turns out to be in an unisolated group then dump the variable
+    if [[ ${#aGPU[@]} -gt 0 ]] && [[ $miscDevice -gt 0 ]] && [[ $allocateGPUOnCycle -eq 1 ]]; then
+      unset aGPU
+    elif [[ ${#aUSB[@]} -gt 0 ]] && [[ $miscDevice -gt 0 ]]; then
+      for((m=$((${#aUSB[@]}-1));m>-1;m--)); do
+        unset aUSB[$m]
+      done
+    fi
+    unset miscDevice allocateGPUOnCycle
+  done
+
+  invalid=$(tput setaf 1)invalid$(tput sgr0)
+  valid=$(tput setaf 2)valid$(tput sgr0)
+  case ${#aGPU[@]} in
+    2) echo -e "GPU is $valid for passthrough! = [ ${aGPU[*]} ]" ;;
+    *)
+       echo "GPU is $invalid for passthrough!"
+       exit 1
+       ;;
+  esac
+  case ${#aUSB[@]} in
+    2) echo -e "Found $valid USB for passthrough! = [ ${aUSB[*]} ]" ;;
+    *)
+       echo "Found $imvalid USB for passthrough!"
+       exit 1
+       ;;
+  esac
+
+  aConvertedGPU[0]=$(echo ${aGPU[0]} | tr :. _)
+  aConvertedGPU[1]=$(echo ${aGPU[1]} | tr :. _)
+  aConvertedUSB[0]=$(echo ${aUSB[0]} | tr :. _)
+  aConvertedUSB[1]=$(echo ${aUSB[1]} | tr :. _)
 }
 
 function SetupHooks()
@@ -642,8 +679,8 @@ function StartScript()
 	virsh nodedev-detach pci_0000_$cGPUAudio
 	DOC
 
-	  for usb in ${aUSB[@]}; do
-	    echo -e "virsh nodedev-detach pci_0000_$(echo $usb | tr :. _)"
+	  for usb in ${aConvertedUSB[@]}; do
+	    echo -e "virsh nodedev-detach pci_0000_$usb"
 	  done >> $fHookStart
 
 	cat <<- DOC >> $fHookStart
@@ -671,8 +708,8 @@ function EndScript()
 	virsh nodedev-reattach pci_0000_$cGPUAudio
 	DOC
 
-  for usb in ${aUSB[@]}; do
-    echo -e "virsh nodedev-reattach pci_0000_$(echo $usb | tr :. _)"
+  for usb in ${aConvertedUSB[@]}; do
+    echo -e "virsh nodedev-reattach pci_0000_$usb"
   done >> $fHookEnd
 
 	cat <<- DOC >> $fHookEnd
@@ -838,8 +875,8 @@ function CreateVM()
   --controller type=usb,model=none \
   --memballoon model=none \
   --tpm model=tpm-crb,type=emulator,version=2.0 \
-  --host-device="pci_0000_$cGPUVideo" \
-  --host-device="pci_0000_$cGPUAudio" \
+  --host-device="pci_0000_${aConvertedGPU[0]}" \
+  --host-device="pci_0000_${aConvertedGPU[1]}" \
   --qemu-commandline="-cpu" \
   --qemu-commandline="host,hv_time,hv_relaxed,hv_vapic,hv_spinlocks=8191,hv_vpindex,hv_reset,hv_synic,hv_stimer,hv_frequencies,hv_reenlightenment,hv_tlbflush,hv_ipi,kvm=off,kvm-hint-dedicated=on,-hypervisor,$CPUFeatures" \
   >> $logFile 2>&1
@@ -892,8 +929,8 @@ function InsertCPUPinning()
 function InsertUSB()
 {
   logger info "Adding USB Controllers...."
-  for usb in ${aUSB[@]}; do
-    virt-xml $VMName --add-device --host-device="pci_0000_$(echo $usb | tr :. _)" >> $logFile 2>&1
+  for usb in ${aConvertedUSB[@]}; do
+    virt-xml $VMName --add-device --host-device="pci_0000_$usb" >> $logFile 2>&1
   done
 }
 
