@@ -676,8 +676,8 @@ function StartScript()
 		fi
 	done
 	echo efi-framebuffer.0 > /sys/bus/platform/drivers/efi-framebuffer/unbind
-	virsh nodedev-detach pci_0000_$cGPUVideo
-	virsh nodedev-detach pci_0000_$cGPUAudio
+	virsh nodedev-detach pci_0000_${aConvertedGPU[0]}
+	virsh nodedev-detach pci_0000_${aConvertedGPU[1]}
 	DOC
 
 	  for usb in ${aConvertedUSB[@]}; do
@@ -705,8 +705,8 @@ function EndScript()
 	cat <<- DOC >> $fHookEnd
 	#!/bin/bash
 	set -x
-	virsh nodedev-reattach pci_0000_$cGPUVideo
-	virsh nodedev-reattach pci_0000_$cGPUAudio
+	virsh nodedev-reattach pci_0000_${aConvertedGPU[0]}
+	virsh nodedev-reattach pci_0000_${aConvertedGPU[1]}
 	DOC
 
   for usb in ${aConvertedUSB[@]}; do
