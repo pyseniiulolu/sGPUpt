@@ -447,6 +447,7 @@ function QuerySysInfo()
   AllCPUs="0-$(($(nproc)-1))"
 
   # Stop the script if we have more than one GPU in the system
+  local lsp=$(lspci)
   if (( $(lspci | grep "VGA" | wc -l) > 1 )); then
     logger error "There are too many GPUs in the system!"
   fi
@@ -460,8 +461,11 @@ function QuerySysInfo()
     GPUName=${RED}$(glxinfo -B | grep "renderer string" | cut -d":" -f2 | cut -c2- | cut -d"(" -f1 | head -c -2)${DEFAULT}
   fi
 
+  # Get passthrough devices
+  CheckIOMMUGroups
+
   # Stop the script if we don't have any GPU on the system
-  if [[ -z $GPUVideo ]] || [[ -z $GPUAudio ]]; then
+  if [[ -z ${aGPU[0]} ]] || [[ -z ${aGPU[1]} ]]; then
     logger error "Couldn't find any GPU on the system..."
   fi
 
@@ -470,17 +474,14 @@ function QuerySysInfo()
     logger warn "Failed to find GPU name. Do you have drivers installed?"
   fi
 
-  read -p "$(logger info "Is this the correct GPU? [ $GPUName ]") [y/N]: " CHOICE
-  if [[ $CHOICE != @("y"|"Y") ]]; then
-    logger error "Please report this if your GPU wasn't detected correctly!"
-  fi
-  
-  # Get passthrough devices
-  CheckIOMMUGroups
-
   # Stop the script if we don't have any USB on the system
   if [[ -z $aUSB ]]; then
     logger error "Couldn't find any USB controllers on the system..."
+  fi
+
+  read -p "$(logger info "Is this the correct GPU? [ $GPUName ]") [y/N]: " CHOICE
+  if [[ $CHOICE != @("y"|"Y") ]]; then
+    logger error "Please report this if your GPU wasn't detected correctly!"
   fi
 
   # CPU topology
