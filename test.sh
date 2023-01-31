@@ -1,5 +1,5 @@
 #!/bin/bash
-
+GPUType=NVIDIA
 function CheckIOMMUGroupsTest()
 {
   ((h=0, allocateGPUOnCycle=0))
@@ -17,11 +17,14 @@ function CheckIOMMUGroupsTest()
       echo -e "\tGroup $gr - $deviceOutput"
 
       # If the device isn't part of our GPU then continue checking group
-      if [[ $deviceOutput =~ (VGA|Audio|USB Controller) ]] && [[ $deviceOutput =~ $GrepGPU ]]; then
+      if [[ $deviceOutput =~ (VGA|Audio) ]] && [[ $deviceOutput =~ $GrepGPU ]]; then
          aGPU[$h]=$deviceID
          ((h++, allocateGPUOnCycle=1))
          tput cuu1
          echo -e "      $(tput setaf 2)>$(tput sgr0)"
+      elif [[ $deviceOutput =~ (USB Controller) ]]; then
+         aUSB[$k]=$deviceID
+	 ((k++))
        else
          ((miscDevice++))
       fi
