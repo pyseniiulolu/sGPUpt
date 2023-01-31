@@ -59,20 +59,28 @@ function header(){
   #TODO: parameterize offset width
   url="https://github.com/$author/$tool/issues"
   rep="Report issues @ $url"
-  tag="# ${RED}♥${DEFAULT} $tool made by $author ${RED}♥${DEFAULT}"
+  tag="${RED}♥${DEFAULT} $tool made by $author ${RED}♥${DEFAULT}"
   blen=$(<<< $rep wc -m)
   row=$((blen+3))
   tlen=$(<<< $tag wc -m)
-  tlen=$((tlen-34))
-  pad=$((blen-tlen-1))
+  clen=$(echo -n "${RED}" | wc -m)
+  dlen=$(echo -n "${DEFAULT}" | wc -m)
+  tlen=$((tlen-((clen*2))-((dlen*2))))
+  pad=$((row-tlen))
+  hpad=$((pad/2))
   border(){
      printf "\n"
      for((i=0;i<$row;i++)); do
        printf "#"
      done
   }
+  hpadded(){
+     for((i=0;i<$hpad;i++)); do
+       printf " "
+     done
+  }
   border
-  printf "\n%s%${pad}s#\n" "$tag"
+  printf "\n#%s%s%${hpad}s#\n" "$(hpadded)" "$tag"
   printf "# %s #" "$rep"
   border
   printf "\n"
@@ -234,32 +242,35 @@ function InstallPackages()
   fedora_version=("36" "37")
   local re="\\b$VERSION_ID\\b"
 
+  testVersions(){
+    local -n arr="${1}_version"
+    if [[ ! ${arr[*]} =~ $re ]]; then
+      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${arr[@]}")"
+    fi
+  }
+
   # Which Distro
   if [[ -e /etc/arch-release ]]; then
     yes | pacman -S --needed "${arch_depends[@]}" >> $logFile 2>&1
   elif [[ -e /etc/debian_version ]]; then
-    if [[ $NAME == "Ubuntu" ]] && [[ ! ${ubuntu_version[*]} =~ $re ]]; then
-      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${ubuntu_version[@]}")"
-    elif [[ $NAME == "Linux Mint" ]] && [[ ! ${mint_version[*]} =~ $re ]]; then
-      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${mint_version[@]}")"
-    elif [[ $NAME == "Pop!_OS" ]] && [[ ! ${pop_version[*]} =~ $re ]]; then
-      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${pop_version[@]}")"
-    fi
-
-    apt install -y "${debian_depends[@]}" >> $logFile 2>&1
-
+	  case $NAME in
+		  Ubuntu) arr=ubuntu ;;
+		  "Linux Mint") arr=mint ;;
+		  "Pop!_OS") arr=pop ;;
+	  esac
+	  testVersions "$arr"
+	  apt install -y "${debian_depends[@]}" >> $logFile 2>&1
   elif [[ -e /etc/system-release ]]; then
-    if [[ $NAME == "AlmaLinux" ]] && [[ ! ${alma_version[*]} =~ $re ]]; then
-      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${alma_version[@]}")"
-    elif [[ $NAME =~ "Fedora" ]] && [[ ! ${fedora_version[*]} =~ $re ]]; then
-      logger error "This script is only verified to work on $NAME Version $(printf "%s " "${fedora_version[@]}")"
-    fi
-
-    if [[ $NAME == "AlmaLinux" ]]; then
-      dnf --enablerepo=crb install -y "${alma_depends[@]}" >> $logFile 2>&1
-    elif [[ $NAME =~ "Fedora" ]]; then
-      dnf install -y "${fedora_depends[@]}" >> $logFile 2>&1
-    fi
+	  case $NAME in
+		  AlmaLinux)
+			  testVersions "alma"
+			  dnf --enablerepo=crb install -y "${alma_depends[@]}" >> $logFile 2>&1
+			  ;;
+		  Fedora)
+			  testVersions "fedora"
+			  dnf install -y "${fedora_depends[@]}" >> $logFile 2>&1
+			  ;;
+	  esac
   else
     logger error "Cannot find distro!"
   fi
@@ -418,13 +429,11 @@ function QuerySysInfo()
   CPUBrand=$(grep -m 1 'vendor_id' /proc/cpuinfo | cut -c13-)
   CPUName=$(grep -m 1 'model name' /proc/cpuinfo | cut -c14-)
 
-  if [[ $CPUBrand == "AuthenticAMD" ]]; then
-    SysType="AMD"
-  elif [[ $CPUBrand == "GenuineIntel" ]]; then
-    SysType="Intel"
-  else
-    logger error "Failed to find CPU brand."
-  fi
+  case $CPUBrand in
+	  "AuthenticAMD") SysType="AMD" ;;
+	  "GenuineIntel") SysType="Intel" ;;
+	  *) logger error "Failed to find CPU brand." ;;
+  esac
 
   # Core + Thread Pairs
   for (( i=0, u=0; i<$(nproc) / 2; i++ )); do
@@ -479,7 +488,7 @@ function QuerySysInfo()
   fi
 
   # Find all USB Controllers
-  aUSB=$(lspci | grep "USB" | awk '{printf $1 " "}' | head -c -1)
+  aUSB=$(<<< "$lsp" grep "USB" | awk '{printf $1 " "}' | head -c -1)
 
   if [[ ${aUSB[@]} =~ "0000:" ]]; then
     aUSB=$(echo ${aUSB[@]//0000:/})
