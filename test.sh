@@ -24,7 +24,7 @@ function CheckIOMMUGroupsTest()
          echo -e "      $(tput setaf 2)>$(tput sgr0)"
       elif [[ $deviceOutput =~ (USB Controller) ]]; then
          aUSB[$k]=$deviceID
-	 ((k++))
+         ((k++))
        else
          ((miscDevice++))
       fi
