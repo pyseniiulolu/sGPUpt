@@ -3,10 +3,9 @@
 function CheckIOMMUGroupsTest()
 {
   ((h=0, allocateGPUOnCycle=0))
-GPUType=NVIDIA
   case $GPUType in
-	  NVIDIA) GrepGPU="NVIDIA" ;;
-	  AMD) GrepGPU="AMD/ATI" ;;
+   NVIDIA) GrepGPU="NVIDIA" ;;
+   AMD) GrepGPU="AMD/ATI" ;;
   esac
   for g in $(find /sys/kernel/iommu_groups/* -maxdepth 0 -type d | sort -V); do
 
@@ -18,7 +17,7 @@ GPUType=NVIDIA
       echo -e "\tGroup $gr - $deviceOutput"
 
       # If the device isn't part of our GPU then continue checking group
-       if [[ $deviceOutput =~ (VGA|Audio) ]] && [[ $deviceOutput =~ $GrepGPU ]]; then
+      if [[ $deviceOutput =~ (VGA|Audio|USB Controller) ]] && [[ $deviceOutput =~ $GrepGPU ]]; then
          aGPU[$h]=$deviceID
          ((h++, allocateGPUOnCycle=1))
          tput cuu1
