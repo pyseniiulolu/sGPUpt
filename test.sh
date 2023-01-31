@@ -33,6 +33,10 @@ function CheckIOMMUGroupsTest()
     # If $aGPU was defined earlier but it turns out to be in an unisolated group then dump the variable
     if [[ ${#aGPU[@]} -gt 0 ]] && [[ $miscDevice -gt 0 ]] && [[ $allocateGPUOnCycle -eq 1 ]]; then
       unset aGPU
+    elif [[ ${#aUSB[@]} -gt 0 ]] && [[ $miscDevice -gt 0 ]]; then
+      for((m=$((${#aUSB[@]}-1));m>-1;m--)); do
+        unset aUSB[$m]
+      done
     fi
     unset miscDevice allocateGPUOnCycle
   done
