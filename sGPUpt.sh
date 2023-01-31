@@ -20,10 +20,6 @@ WHITEBG=$(tput smso)
 RESETBG=$(tput sgr0)
 UNDERLINE=$(tput smul)
 
-#deprecated
-#BLINKYELLOW='\033[1;33m\033[5;33m'
-#BLINKRED='\033[0;31m\033[5;31m'
-
 # Main Vars
 VMName=$1
 GPUType=${2^^}
@@ -148,8 +144,8 @@ function main()
   if [[ $firstInstall == "true" ]]; then
     read -p "$(logger info "A reboot is required for this distro, reboot now? [Y/n]: ")" CHOICE
     case "$CHOICE" in
-	    y|Y) reboot ;;
-	    "") reboot ;;
+      y|Y) reboot ;;
+      "") reboot ;;
     esac
   fi
 }
@@ -242,7 +238,7 @@ function InstallPackages()
   fedora_version=("36" "37")
   local re="\\b$VERSION_ID\\b"
 
-  testVersions(){
+  testVersions() {
     local -n arr="${1}_version"
     if [[ ! ${arr[*]} =~ $re ]]; then
       logger error "This script is only verified to work on $NAME Version $(printf "%s " "${arr[@]}")"
@@ -253,32 +249,32 @@ function InstallPackages()
   if [[ -e /etc/arch-release ]]; then
     yes | pacman -S --needed "${arch_depends[@]}" >> $logFile 2>&1
   elif [[ -e /etc/debian_version ]]; then
-	  case $NAME in
-		  Ubuntu) arr=ubuntu ;;
-		  "Linux Mint") arr=mint ;;
-		  "Pop!_OS") arr=pop ;;
-	  esac
-	  testVersions "$arr"
-	  apt install -y "${debian_depends[@]}" >> $logFile 2>&1
+    case $NAME in
+      "Ubuntu") arr=ubuntu ;;
+      "Linux Mint") arr=mint ;;
+      "Pop!_OS") arr=pop ;;
+    esac
+    testVersions "$arr"
+    apt install -y "${debian_depends[@]}" >> $logFile 2>&1
   elif [[ -e /etc/system-release ]]; then
-	  case $NAME in
-		  AlmaLinux)
-			  testVersions "alma"
-			  dnf --enablerepo=crb install -y "${alma_depends[@]}" >> $logFile 2>&1
-			  ;;
-		  Fedora)
-			  testVersions "fedora"
-			  dnf install -y "${fedora_depends[@]}" >> $logFile 2>&1
-			  ;;
-	  esac
+    case $NAME in
+      "AlmaLinux")
+        testVersions "alma"
+        dnf --enablerepo=crb install -y "${alma_depends[@]}" >> $logFile 2>&1
+        ;;
+      "Fedora"|"Nobara Linux")
+        testVersions "fedora"
+        dnf install -y "${fedora_depends[@]}" >> $logFile 2>&1
+        ;;
+    esac
   else
     logger error "Cannot find distro!"
   fi
 
   # Fedora and Alma don't have libvirt-qemu for some reason?
   case "$NAME" in
-	  Fedora|AlmaLinux) groupName=$SUDO_USER ;;
-	  *) groupName="libvirt-qemu" ;;
+    "Fedora"|"AlmaLinux"|"Nobara Linux") groupName=$SUDO_USER ;;
+    *) groupName="libvirt-qemu" ;;
   esac
 
   # If dir doesn't exist then create it
@@ -430,9 +426,9 @@ function QuerySysInfo()
   CPUName=$(grep -m 1 'model name' /proc/cpuinfo | cut -c14-)
 
   case $CPUBrand in
-	  "AuthenticAMD") SysType="AMD" ;;
-	  "GenuineIntel") SysType="Intel" ;;
-	  *) logger error "Failed to find CPU brand." ;;
+    "AuthenticAMD") SysType="AMD" ;;
+    "GenuineIntel") SysType="Intel" ;;
+    *) logger error "Failed to find CPU brand." ;;
   esac
 
   # Core + Thread Pairs
