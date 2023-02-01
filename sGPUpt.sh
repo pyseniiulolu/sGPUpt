@@ -673,6 +673,11 @@ function StartScript()
     #!/bin/bash
     set -x
     systemctl stop display-manager
+    if [[ -n $(pgrep -x "gdm-x-session") ]]; then
+      killall gdm-x-session
+    elif [[ -n $(pgrep -x "gdm-wayland-session") ]]; then
+      killall gdm-wayland-session
+    fi
     for file in /sys/class/vtconsole/*; do
       if (( \$(grep -c \"frame buffer\" \$file/name) == 1 )); then
         echo 0 > \$file/bind
