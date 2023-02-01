@@ -29,7 +29,6 @@ netName="default"
 netPath="/tmp/$netName.xml"
 
 # Storage Vars
-DefaultDiskSize="128"
 DiskPath="/etc/sGPUpt/qemu-images"
 ISOPath="/etc/sGPUpt/iso/"
 #DiskPath=/home/$SUDO_USER/Documents/qemu-images
@@ -894,9 +893,11 @@ function CreateVM()
 
 function HandleDisk()
 {
-  read -p "$(logger info "Size of disk? [GB]: ")" DiskSize
+  read -p "$(logger info "Size of disk (GB)[default 128]: ")" DiskSize
+  
+  # If reply is blank/invalid then default to 128G
   if [[ ! $DiskSize =~ ^[0-9]+$ ]] || (( $DiskSize < 1 )); then
-    DiskSize=$DefaultDiskSize
+    DiskSize="128"
   fi
 
   qemu-img create -f qcow2 $DiskPath/$VMName.qcow2 ${DiskSize}G >> $logFile 2>&1
