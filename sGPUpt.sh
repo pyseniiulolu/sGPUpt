@@ -687,7 +687,15 @@ function StartScript()
         echo 0 > \$file/bind
       fi
     done
+    # Only needed for some GPUs? I'll mess with this later...
     echo efi-framebuffer.0 > /sys/bus/platform/drivers/efi-framebuffer/unbind
+  DOC
+    if [[ $GPUType == "NVIDIA") ]]; then
+      echo -e "modprobe -r nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookStart
+    elif [[ $GPUType == "AMD") ]]; then
+      echo -e "modprobe -r amdgpu" >> $fHookStart
+    fi
+  cat <<- DOC >> $fHookStart
     virsh nodedev-detach pci_0000_${aConvertedGPU[0]}
     virsh nodedev-detach pci_0000_${aConvertedGPU[1]}
   DOC
@@ -716,10 +724,17 @@ function EndScript()
     set -x
     virsh nodedev-reattach pci_0000_${aConvertedGPU[0]}
     virsh nodedev-reattach pci_0000_${aConvertedGPU[1]}
+    modprobe -r vfio_pci
   DOC
     for usb in ${aConvertedUSB[@]}; do
       echo -e "virsh nodedev-reattach pci_0000_$usb"
     done >> $fHookEnd
+
+    if [[ $GPUType == "NVIDIA") ]]; then
+      echo -e "modprobe nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookEnd
+    elif [[ $GPUType == "AMD") ]]; then
+      echo -e "modprobe amdgpu" >> $fHookEnd
+    fi
   cat <<- DOC >> $fHookEnd
     systemctl start display-manager
     for file in /sys/class/vtconsole/*; do
