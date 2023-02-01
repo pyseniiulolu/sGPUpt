@@ -506,7 +506,7 @@ function QuerySysInfo()
     vMem="4096"
   fi
 
-	cat <<- 'DOC' >> $logFile
+	cat <<- DOC >> $logFile
 	["Query Result"]
 	{
 		"System Conf":[
@@ -544,7 +544,7 @@ function QuerySysInfo()
 			"USB IDs": [ ${aConvertedUSB[@]} ]
 		}]
 	}
-	DOC
+DOC
 }
 
 ###############################################################################
@@ -674,7 +674,7 @@ function StartScript()
   fi
 
   > $fHookStart
-	cat <<- 'DOC' >> $fHookStart
+	cat <<- DOC >> $fHookStart
       #!/bin/bash
       set -x
       systemctl stop display-manager
@@ -690,25 +690,25 @@ function StartScript()
       done
       # Only needed for some GPUs? I'll mess with this later...
       echo efi-framebuffer.0 > /sys/bus/platform/drivers/efi-framebuffer/unbind
-	DOC
+DOC
       if [[ $GPUType == "NVIDIA" ]]; then
         echo -e "modprobe -r nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookStart
       elif [[ $GPUType == "AMD" ]]; then
         echo -e "modprobe -r amdgpu" >> $fHookStart
       fi
-	cat <<- 'DOC' >> $fHookStart
+	cat <<- DOC >> $fHookStart
       virsh nodedev-detach pci_0000_${aConvertedGPU[0]}
       virsh nodedev-detach pci_0000_${aConvertedGPU[1]}
-	DOC
+DOC
       for usb in ${aConvertedUSB[@]}; do
         echo -e "virsh nodedev-detach pci_0000_$usb"
       done >> $fHookStart
-	cat <<- 'DOC' >> $fHookStart
+	cat <<- DOC >> $fHookStart
       modprobe vfio-pci
       systemctl set-property --runtime -- user.slice AllowedCPUs=$ReservedCPUs
       systemctl set-property --runtime -- system.slice AllowedCPUs=$ReservedCPUs
       systemctl set-property --runtime -- init.scope AllowedCPUs=$ReservedCPUs
-	DOC
+DOC
 }
 
 function EndScript()
@@ -720,13 +720,13 @@ function EndScript()
   fi
 
   > $fHookEnd
-	cat <<- 'DOC' >> $fHookEnd
+	cat <<- DOC >> $fHookEnd
       #!/bin/bash
       set -x
       virsh nodedev-reattach pci_0000_${aConvertedGPU[0]}
       virsh nodedev-reattach pci_0000_${aConvertedGPU[1]}
       modprobe -r vfio_pci
-	DOC
+DOC
       for usb in ${aConvertedUSB[@]}; do
         echo -e "virsh nodedev-reattach pci_0000_$usb"
       done >> $fHookEnd
@@ -736,7 +736,7 @@ function EndScript()
       elif [[ $GPUType == "AMD" ]]; then
         echo -e "modprobe amdgpu" >> $fHookEnd
       fi
-	cat <<- 'DOC' >> $fHookEnd
+	cat <<- DOC >> $fHookEnd
       systemctl start display-manager
       for file in /sys/class/vtconsole/*; do
         if (( \$(grep -c "frame buffer" \$file/name) == 1 )); then
@@ -746,7 +746,7 @@ function EndScript()
       systemctl set-property --runtime -- user.slice AllowedCPUs=$AllCPUs
       systemctl set-property --runtime -- system.slice AllowedCPUs=$AllCPUs
       systemctl set-property --runtime -- init.scope AllowedCPUs=$AllCPUs
-	DOC
+DOC
 }
 
 function vNetworkCheck()
@@ -768,7 +768,7 @@ function vNetworkCheck()
           </dhcp>
         </ip>
       </network>
-	DOC
+DOC
 
     virsh net-define $netPath >> $logFile 2>&1
     rm $netPath >> $logFile 2>&1
