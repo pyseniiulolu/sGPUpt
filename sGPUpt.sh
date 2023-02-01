@@ -471,7 +471,7 @@ function QuerySysInfo()
     logger error "Couldn't find any GPU on the system..."
   elif [[ -z $GPUName ]]; then
     logger error "Failed to find GPU name, do you have drivers installed?"
-  elif [[ -z $aUSB ]]; then
+  elif [[ -z ${aUSB[*]} ]]; then
     logger error "Couldn't find any USB controllers on the system..."
   fi
 
@@ -600,11 +600,10 @@ function CheckIOMMUGroups()
        ;;
   esac
   case ${#aUSB[@]} in
-    2) echo -e "USB: $valid for passthrough! = [ ${aUSB[*]} ]" ;;
-    *)
-       echo "USB: $invalid for passthrough!"
+    0) echo "USB: $invalid for passthrough!"
        exit 1
        ;;
+    *) echo -e "USB: $valid for passthrough! = [ ${aUSB[*]} ]" ;;
   esac
   for i in "${!aGPU[@]}"; do
     k=$(<<< ${aGPU[$i]} tr :. _)
