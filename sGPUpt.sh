@@ -612,11 +612,14 @@ function CheckIOMMUGroups()
        exit 1
        ;;
   esac
-  aConvertedGPU[0]=$(echo ${aGPU[0]} | tr :. _)
-  aConvertedGPU[1]=$(echo ${aGPU[1]} | tr :. _)
-  aConvertedUSB[0]=$(echo ${aUSB[0]} | tr :. _)
-  aConvertedUSB[1]=$(echo ${aUSB[1]} | tr :. _)
-
+  for i in "${!aGPU[@]}"; do
+    k=$(<<< ${aGPU[$i]} tr :. _)
+    aConvertedGPU[$i]="$k"
+  done
+  for i in "${!aUSB[@]}"; do
+    k=$(<<< ${aUSB[$i]} tr :. _)
+    aConvertedUSB[$i]="$k"
+  done
 }
 
 function SetupHooks()
