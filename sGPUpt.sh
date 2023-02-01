@@ -934,7 +934,7 @@ function InsertSpoofedBoard()
 {
   ASUSMotherboards
 
-  logger info "Spoofing motherboard"
+  logger info "Spoofing motherboard [ $BaseBoardProduct ]"
 
   virt-xml $VMName --add-device --sysinfo bios.vendor="$BIOSVendor",bios.version="$BIOSRandVersion",bios.date="$BIOSDate",bios.release="$BIOSRandRelease" >> $logFile 2>&1
   virt-xml $VMName --add-device --sysinfo system.manufacturer="$SystemManufacturer",system.product="$SystemProduct",system.version="$SystemVersion",system.serial="$SystemRandSerial",system.uuid="$SystemUUID",system.sku="$SystemSku",system.family="$SystemFamily" >> $logFile 2>&1
@@ -945,7 +945,7 @@ function InsertSpoofedBoard()
 
 function InsertCPUPinning()
 {
-  logger info "Adding CPU Pinning for [ $CPUName ]..."
+  logger info "Adding CPU Pinning for [ $CPUName ]"
   for (( i=0; i<$vCPU; i++ )); do
     virt-xml $VMName --edit --cputune="vcpupin$i.vcpu=$i,vcpupin$i.cpuset=${aCPU[$i]}" >> $logFile 2>&1
   done
@@ -953,7 +953,7 @@ function InsertCPUPinning()
 
 function InsertUSB()
 {
-  logger info "Adding USB Controllers...."
+  logger info "Adding USB Controllers"
   for usb in ${aConvertedUSB[@]}; do
     virt-xml $VMName --add-device --host-device="pci_0000_$usb" >> $logFile 2>&1
   done
