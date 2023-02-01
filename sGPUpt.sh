@@ -556,6 +556,10 @@ function QuerySysInfo()
 function CheckIOMMUGroups()
 {
   ((h=0, allocateGPUOnCycle=0))
+  case $GPUType in
+   NVIDIA) GrepGPU="NVIDIA" ;;
+   AMD) GrepGPU="AMD/ATI" ;;
+  esac
   for g in $(find /sys/kernel/iommu_groups/* -maxdepth 0 -type d | sort -V); do
 
     # Check each device in the group to ensure that our target device is isolated properly
@@ -608,11 +612,11 @@ function CheckIOMMUGroups()
        exit 1
        ;;
   esac
-
   aConvertedGPU[0]=$(echo ${aGPU[0]} | tr :. _)
   aConvertedGPU[1]=$(echo ${aGPU[1]} | tr :. _)
   aConvertedUSB[0]=$(echo ${aUSB[0]} | tr :. _)
   aConvertedUSB[1]=$(echo ${aUSB[1]} | tr :. _)
+
 }
 
 function SetupHooks()
