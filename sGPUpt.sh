@@ -569,7 +569,7 @@ function CheckIOMMUGroups()
          ((h++, allocateGPUOnCycle=1))
          tput cuu1
          echo -e "      $indicator"
-      elif [[ $deviceOutput =~ (USB Controller) ]]; then
+      elif [[ $deviceOutput =~ (USB controller) ]]; then
          aUSB[$k]=$deviceID
          ((k++))
          tput cuu1
