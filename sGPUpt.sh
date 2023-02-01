@@ -545,6 +545,10 @@ function QuerySysInfo()
   DOC
 }
 
+###############################################################################
+# Refer to the link below if you need to understand this function             #
+# https://wiki.archlinux.org/title/PCI_passthrough_via_OVMF#Setting_up_IOMMU  #
+###############################################################################
 function CheckIOMMUGroups()
 {
   ((h=0, allocateGPUOnCycle=0))
