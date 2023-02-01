@@ -189,6 +189,7 @@ function InstallPackages()
     "glib2-devel"
     "pixman-devel"
     "spice-protocol"
+    "spice-server-devel"
   )
   fedora_depends=(
     "qemu-kvm"
@@ -229,6 +230,7 @@ function InstallPackages()
     "uuid-dev"
     "python-is-python3"
     "libspice-protocol-dev"
+    "libspice-server-dev"
   )
   ubuntu_version=("22.04" "22.10")
   mint_version=("21.1")
@@ -526,7 +528,7 @@ function QuerySysInfo()
 
         "PCI":[
         {
-          "GPU Name":"$(<<< $GPUName sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g")",
+          "GPU Name":"$(<<< $GPUName sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g')",
           "GPU IDs": [ ${aGPU[@]} ],
           "USB IDs": [ ${aUSB[@]} ]
         }],
