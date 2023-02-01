@@ -409,8 +409,8 @@ function EDK2Compile()
   git submodule update --init >> $logFile 2>&1
 
   # Spoofing edits
-  sed -i "s/\"EDK II\"/\"American Megatrends\"/"                                            $edkDir/MdeModulePkg/MdeModulePkg.dec
-  sed -i "s/\"EDK II\"/\"American Megatrends\"/"                                            $edkDir/ShellPkg/ShellPkg.dec
+  sed -i 's/EDK II/American Megatrends/'                                                    $edkDir/MdeModulePkg/MdeModulePkg.dec
+  sed -i 's/EDK II/American Megatrends/'                                                    $edkDir/ShellPkg/ShellPkg.dec
 
   make -j$(nproc) -C BaseTools >> $logFile 2>&1
   . edksetup.sh >> $logFile 2>&1
