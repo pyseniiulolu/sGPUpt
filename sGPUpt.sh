@@ -378,19 +378,19 @@ function QemuCompile()
   cd $qemuDir >> $logFile 2>&1
 
   # Spoofing edits ~ We should probably add a bit more here...
-  sed -i 's/BOCHS /ALASKA/'                                                                 $qemuDir/include/hw/acpi/aml-build.h
-  sed -i 's/BXPC    /ASPC    /'                                                             $qemuDir/include/hw/acpi/aml-build.h
-  sed -i 's/QEMU HARDDISK/WDC WD10JPVX-22JC3T0/'                                            $qemuDir/hw/scsi/scsi-disk.c
-  sed -i 's/QEMU HARDDISK/WDC WD10JPVX-22JC3T0/'                                            $qemuDir/hw/ide/core.c
-  sed -i 's/QEMU DVD-ROM/ASUS DRW 24F1ST/'                                                  $qemuDir/hw/ide/core.c
-  sed -i 's/QEMU/ASUS/'                                                                     $qemuDir/hw/ide/atapi.c
-  sed -i 's/QEMU DVD-ROM/ASUS DRW 24F1ST/'                                                  $qemuDir/hw/ide/atapi.c
-  sed -i 's/QEMU PenPartner Tablet/Wacom Tablet/'                                           $qemuDir/hw/usb/dev-wacom.c
-  sed -i 's/QEMU PenPartner Tablet/Wacom Tablet/'                                           $qemuDir/hw/scsi/scsi-disk.c
-  sed -i 's/#define DEFAULT_CPU_SPEED 2000/#define DEFAULT_CPU_SPEED 3400/'                 $qemuDir/hw/scsi/scsi-disk.c
-  sed -i 's/KVMKVMKVM\0\0\0/$CPUBrand/'                                                     $qemuDir/include/standard-headers/asm-x86/kvm_para.h
-  sed -i 's/KVMKVMKVM\0\0\0/$CPUBrand/'                                                     $qemuDir/target/i386/kvm/kvm.c
-  sed -i 's/bochs/AMI/'                                                                     $qemuDir/block/bochs.c
+  sed -i 's/"BOCHS "/"ALASKA"/'                                                             $qemuDir/include/hw/acpi/aml-build.h
+  sed -i 's/"BXPC    "/"ASPC    "/'                                                         $qemuDir/include/hw/acpi/aml-build.h
+  sed -i 's/"QEMU HARDDISK"/"WDC WD10JPVX-22JC3T0"/'                                        $qemuDir/hw/scsi/scsi-disk.c
+  sed -i 's/"QEMU HARDDISK"/"WDC WD10JPVX-22JC3T0"/'                                        $qemuDir/hw/ide/core.c
+  sed -i 's/"QEMU DVD-ROM"/"ASUS DRW 24F1ST"/'                                              $qemuDir/hw/ide/core.c
+  sed -i 's/"QEMU"/"ASUS"/'                                                                 $qemuDir/hw/ide/atapi.c
+  sed -i 's/"QEMU DVD-ROM"/"ASUS DRW 24F1ST"/'                                              $qemuDir/hw/ide/atapi.c
+  sed -i 's/"QEMU PenPartner Tablet"/"Wacom Tablet"/'                                       $qemuDir/hw/usb/dev-wacom.c
+  sed -i 's/"QEMU PenPartner Tablet"/"Wacom Tablet"/'                                       $qemuDir/hw/scsi/scsi-disk.c
+  sed -i 's/"#define DEFAULT_CPU_SPEED 2000"/"#define DEFAULT_CPU_SPEED 3400"/'             $qemuDir/hw/scsi/scsi-disk.c
+  sed -i 's/"KVMKVMKVM\0\0\0"/"$CPUBrand"/'                                                 $qemuDir/include/standard-headers/asm-x86/kvm_para.h
+  sed -i 's/"KVMKVMKVM\0\0\0"/"$CPUBrand"/'                                                 $qemuDir/target/i386/kvm/kvm.c
+  sed -i 's/"bochs"/"AMI"/'                                                                 $qemuDir/block/bochs.c
 
   ./configure --enable-spice --disable-werror >> $logFile 2>&1
   make -j$(nproc) >> $logFile 2>&1
