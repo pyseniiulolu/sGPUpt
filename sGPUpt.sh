@@ -556,10 +556,6 @@ function QuerySysInfo()
 function CheckIOMMUGroups()
 {
   ((h=0, allocateGPUOnCycle=0))
-  case $GPUType in
-   NVIDIA) GrepGPU="NVIDIA" ;;
-   AMD) GrepGPU="AMD/ATI" ;;
-  esac
   for g in $(find /sys/kernel/iommu_groups/* -maxdepth 0 -type d | sort -V); do
 
     # Check each device in the group to ensure that our target device is isolated properly
@@ -570,7 +566,7 @@ function CheckIOMMUGroups()
       indicator="$(tput setaf 222)>$(tput sgr0)"
       echo -e "\tGroup $gr - $deviceOutput"
 
-      if [[ $deviceOutput =~ (VGA|Audio) ]] && [[ $deviceOutput =~ $GrepGPU ]]; then
+      if [[ $deviceOutput =~ (VGA|Audio) ]] && [[ $deviceOutput =~ $grepGPU ]]; then
          aGPU[$h]=$deviceID
          ((h++, allocateGPUOnCycle=1))
          tput cuu1
