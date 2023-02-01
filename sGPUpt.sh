@@ -509,40 +509,40 @@ function QuerySysInfo()
 	cat <<- DOC >> $logFile
 	["Query Result"]
 	{
-		"System Conf":[
-		{
-			"CPU":[
-			{
-				"ID":"$CPUBrand",
-				"Name":"$CPUName",
-				"CPU Pinning": [ "${aCPU[@]}" ]
-			}],
+	  "System Conf":[
+	  {
+	    "CPU":[
+	    {
+	        "ID":"$CPUBrand",
+	        "Name":"$CPUName",
+	        "CPU Pinning": [ "${aCPU[@]}" ]
+	    }],
 
-			"Sys.Memory":"$SysMem",
+	    "Sys.Memory":"$SysMem",
 
-			"Isolation":[
-			{
-				"ReservedCPUs":"$ReservedCPUs",
-				"AllCPUs":"$AllCPUs"
-			}],
+	    "Isolation":[
+	    {
+	        "ReservedCPUs":"$ReservedCPUs",
+	        "AllCPUs":"$AllCPUs"
+	    }],
 
-			"PCI":[
-			{
-				"GPU Name":"$(<<< $GPUName sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g')",
-				"GPU IDs": [ ${aGPU[@]} ],
-				"USB IDs": [ ${aUSB[@]} ]
-			}],
-		}],
+	    "PCI":[
+	    {
+	        "GPU Name":"$(<<< $GPUName sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g')",
+	        "GPU IDs": [ ${aGPU[@]} ],
+	        "USB IDs": [ ${aUSB[@]} ]
+	        }],
+	    }],
 
-		"Virt Conf":[
-		{
-			"vCPUs":"$vCPU",
-			"vCores":"$vCore",
-			"vThreads":"$vThread",
-			"vMem":"$vMem",
-			"Converted GPU IDs ": [ ${aConvertedGPU[@]} ],
-			"USB IDs": [ ${aConvertedUSB[@]} ]
-		}]
+	    "Virt Conf":[
+	    {
+	        "vCPUs":"$vCPU",
+	        "vCores":"$vCore",
+	        "vThreads":"$vThread",
+	        "vMem":"$vMem",
+	        "Converted GPU IDs": [ ${aConvertedGPU[@]} ],
+	        "Converted USB IDs": [ ${aConvertedUSB[@]} ]
+	    }]
 	}
 DOC
 }
