@@ -692,9 +692,9 @@ function StartScript()
       # Only needed for some GPUs? I'll mess with this later...
       echo efi-framebuffer.0 > /sys/bus/platform/drivers/efi-framebuffer/unbind
 	DOC
-      if [[ $GPUType == "NVIDIA") ]]; then
+      if [[ $GPUType == "NVIDIA" ]]; then
         echo -e "modprobe -r nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookStart
-      elif [[ $GPUType == "AMD") ]]; then
+      elif [[ $GPUType == "AMD" ]]; then
         echo -e "modprobe -r amdgpu" >> $fHookStart
       fi
 	cat <<- 'DOC' >> $fHookStart
@@ -732,9 +732,9 @@ function EndScript()
         echo -e "virsh nodedev-reattach pci_0000_$usb"
       done >> $fHookEnd
 
-      if [[ $GPUType == "NVIDIA") ]]; then
+      if [[ $GPUType == "NVIDIA" ]]; then
         echo -e "modprobe nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookEnd
-      elif [[ $GPUType == "AMD") ]]; then
+      elif [[ $GPUType == "AMD" ]]; then
         echo -e "modprobe amdgpu" >> $fHookEnd
       fi
 	cat <<- 'DOC' >> $fHookEnd
