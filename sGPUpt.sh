@@ -21,8 +21,8 @@ RESETBG=$(tput sgr0)
 UNDERLINE=$(tput smul)
 
 # Main Vars
-VMName=$1
-GPUType=${2^^}
+VMName="$1"
+GPUType="${2^^}"
 
 # Network Vars
 netName="default"
@@ -107,17 +107,17 @@ function logger(){
 
 function main()
 {
-  if [[ ! $(whoami) = "root" ]]; then
+  if [[ $(whoami) != "root" ]]; then
     logger error "This script requires root privileges!"
-  elif [[ -z $VMName ]] || [[ -z $GPUType ]] || [[ $GPUType != @("NVIDIA"|"AMD") ]]; then
+  elif [[ -z $VMName || -z $GPUType || $GPUType != @("NVIDIA"|"AMD") ]]; then
     logger error "Usage: sudo ./sGPUpt.sh \"{VM-Name}\" <NVIDIA|AMD>"
-  elif [[ $VMName = *" "* ]]; then
+  elif [[ $VMName =~ " " ]]; then
     logger error "Your machine's name cannot contain the character: ' '"
-  elif [[ $VMName = *"/"* ]]; then
+  elif [[ $VMName =~ "/" ]]; then
     logger error "Your machine's name cannot contain the character: '/'"
   elif [[ -z $(grep -E -m 1 "svm|vmx" /proc/cpuinfo) ]]; then
     logger error "This system doesn't support virtualization, please enable it then run this script again!"
-  elif [[ ! -d /sys/firmware/efi ]]; then
+  elif [[ ! -e /sys/firmware/efi ]]; then
     logger error "This system isn't installed in UEFI mode!"
   elif [[ -z $(ls -A /sys/class/iommu/) ]]; then
     logger error "This system doesn't support IOMMU, please enable it then run this script again!"
@@ -247,7 +247,7 @@ function InstallPackages()
 
   # Which Distro
   if [[ -e /etc/arch-release ]]; then
-    yes | pacman -S --needed "${arch_depends[@]}" >> $logFile 2>&1
+    echo yes | pacman -S --needed "${arch_depends[@]}" >> $logFile 2>&1
   elif [[ -e /etc/debian_version ]]; then
     case $NAME in
       "Ubuntu") arr=ubuntu ;;
@@ -297,9 +297,10 @@ function SecurityChecks()
   # targets home systems it's well worth the trade-off to disable security for ease of use.  #
   #                                                                                          #
   ############################################################################################
-  local armor="/etc/apparmor.d/usr/sbin.libvirtd"
+
   # Disable AppArmor
-  if [[ $NAME == @("Ubuntu"|"Pop!_OS"|"Linux Mint") ]] && [[ ! -e /etc/apparmor.d/disable/usr.sbin.libvirtd ]]; then
+  if [[ $NAME =~ ("Ubuntu"|"Pop!_OS"|"Linux Mint") ]] && [[ ! -e /etc/apparmor.d/disable/usr.sbin.libvirtd ]]; then
+    local armor="/etc/apparmor.d/usr/sbin.libvirtd"
     firstInstall="true" # NEEDED TO FIX DEBIAN-BASED DISTROS USING VIRT-MANAGER
     logger info "Disabling AppArmor permanently for this distro"
     ln -s "$armor" /etc/apparmor.d/disable/ >> $logFile 2>&1
@@ -307,8 +308,8 @@ function SecurityChecks()
   fi
 
   # Disable SELinux
-  local se_config="/etc/selinux/config"
-  if [[ $NAME =~ "Fedora" ]] || [[ $NAME == "AlmaLinux" ]]; then
+  if [[ $NAME =~ ("Fedora"|"AlmaLinux"|"Nobara Linux") ]]; then
+    local se_config="/etc/selinux/config"
     source "$se_config"
     if [[ $SELINUX == "enforcing" ]]; then
       logger info "Disabling SELinux permanently for this distro"
@@ -351,7 +352,7 @@ function CompileChecks()
     ln -s $qemuDir/build/qemu-system-x86_64 /etc/sGPUpt/qemu-system-x86_64 >> $logFile 2>&1
   fi
 
-  if [[ ! -e $qemuDir/build/qemu-system-x86_64 ]] && [[ ! -e $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
+  if [[ ! -e $qemuDir/build/qemu-system-x86_64 && ! -e $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
     logger error "Failed to compile? Check the log file."
   fi
 
@@ -376,19 +377,19 @@ function QemuCompile()
   cd $qemuDir >> $logFile 2>&1
 
   # Spoofing edits ~ We should probably add a bit more here...
-  sed -i "s/\"BOCHS \"/\"ALASKA\"/"                                                         $qemuDir/include/hw/acpi/aml-build.h
-  sed -i "s/\"BXPC    \"/\"ASPC    \"/"                                                     $qemuDir/include/hw/acpi/aml-build.h
-  sed -i "s/\"QEMU HARDDISK\"/\"WDC WD10JPVX-22JC3T0\"/"                                    $qemuDir/hw/scsi/scsi-disk.c
-  sed -i "s/\"QEMU HARDDISK\"/\"WDC WD10JPVX-22JC3T0\"/"                                    $qemuDir/hw/ide/core.c
-  sed -i "s/\"QEMU DVD-ROM\"/\"ASUS DRW 24F1ST\"/"                                          $qemuDir/hw/ide/core.c
-  sed -i "s/\"QEMU\"/\"ASUS\"/"                                                             $qemuDir/hw/ide/atapi.c
-  sed -i "s/\"QEMU DVD-ROM\"/\"ASUS DRW 24F1ST\"/"                                          $qemuDir/hw/ide/atapi.c
-  sed -i "s/\"QEMU PenPartner Tablet\"/\"Wacom Tablet\"/"                                   $qemuDir/hw/usb/dev-wacom.c
-  sed -i "s/\"QEMU PenPartner Tablet\"/\"Wacom Tablet\"/"                                   $qemuDir/hw/scsi/scsi-disk.c
-  sed -i "s/\"#define DEFAULT_CPU_SPEED 2000\"/\"#define DEFAULT_CPU_SPEED 3400\"/"         $qemuDir/hw/scsi/scsi-disk.c
-  sed -i "s/\"KVMKVMKVM\\\\0\\\\0\\\\0\"/\"$CPUBrand\"/"                                    $qemuDir/include/standard-headers/asm-x86/kvm_para.h
-  sed -i "s/\"KVMKVMKVM\\\\0\\\\0\\\\0\"/\"$CPUBrand\"/"                                    $qemuDir/target/i386/kvm/kvm.c
-  sed -i "s/\"bochs\"/\"AMI\"/"                                                             $qemuDir/block/bochs.c
+  sed -i 's/BOCHS /ALASKA/'                                                                 $qemuDir/include/hw/acpi/aml-build.h
+  sed -i 's/BXPC    /ASPC    /'                                                             $qemuDir/include/hw/acpi/aml-build.h
+  sed -i 's/QEMU HARDDISK/WDC WD10JPVX-22JC3T0/'                                            $qemuDir/hw/scsi/scsi-disk.c
+  sed -i 's/QEMU HARDDISK/WDC WD10JPVX-22JC3T0/'                                            $qemuDir/hw/ide/core.c
+  sed -i 's/QEMU DVD-ROM/ASUS DRW 24F1ST/'                                                  $qemuDir/hw/ide/core.c
+  sed -i 's/QEMU/ASUS/'                                                                     $qemuDir/hw/ide/atapi.c
+  sed -i 's/QEMU DVD-ROM/ASUS DRW 24F1ST/'                                                  $qemuDir/hw/ide/atapi.c
+  sed -i 's/QEMU PenPartner Tablet/Wacom Tablet/'                                           $qemuDir/hw/usb/dev-wacom.c
+  sed -i 's/QEMU PenPartner Tablet/Wacom Tablet/'                                           $qemuDir/hw/scsi/scsi-disk.c
+  sed -i 's/#define DEFAULT_CPU_SPEED 2000/#define DEFAULT_CPU_SPEED 3400/'                 $qemuDir/hw/scsi/scsi-disk.c
+  sed -i 's/KVMKVMKVM\0\0\0/$CPUBrand/'                                                     $qemuDir/include/standard-headers/asm-x86/kvm_para.h
+  sed -i 's/KVMKVMKVM\0\0\0/$CPUBrand/'                                                     $qemuDir/target/i386/kvm/kvm.c
+  sed -i 's/bochs/AMI/'                                                                     $qemuDir/block/bochs.c
 
   ./configure --enable-spice --disable-werror >> $logFile 2>&1
   make -j$(nproc) >> $logFile 2>&1
@@ -454,7 +455,7 @@ function QuerySysInfo()
 
   # Determine which GPU type
   if [[ $GPUType == "NVIDIA" ]]; then
-    grepGPU="$GPUType"
+    grepGPU="NVIDIA"
     GPUName=${GREEN}$(glxinfo -B | grep "renderer string" | cut -d":" -f2 | cut -c2- | cut -d"/" -f1)${DEFAULT}
   elif [[ $GPUType == "AMD" ]]; then
     grepGPU="AMD/ATI"
@@ -464,18 +465,12 @@ function QuerySysInfo()
   # Get passthrough devices
   CheckIOMMUGroups
 
-  # Stop the script if we don't have any GPU on the system
-  if [[ -z ${aGPU[0]} ]] || [[ -z ${aGPU[1]} ]]; then
+  # Stop the script if any of these variables are undefined
+  if [[ -z ${aGPU[0]} || -z ${aGPU[1]} ]]; then
     logger error "Couldn't find any GPU on the system..."
-  fi
-
-  # If we fail to fill $GPUName
-  if [[ -z $GPUName ]]; then
-    logger warn "Failed to find GPU name. Do you have drivers installed?"
-  fi
-
-  # Stop the script if we don't have any USB on the system
-  if [[ -z $aUSB ]]; then
+  elif [[ -z $GPUName ]]; then
+    logger error "Failed to find GPU name, do you have drivers installed?"
+  elif [[ -z $aUSB ]]; then
     logger error "Couldn't find any USB controllers on the system..."
   fi
 
@@ -486,7 +481,6 @@ function QuerySysInfo()
 
   # CPU topology
   for core in $PT; do ((int+=1)); done
-
   vThread=$(lscpu | grep "Thread(s)" | awk '{print $4}')
   vCPU=$(($(nproc) - $int))
   vCore=$(($vCPU / $vThread))
@@ -511,46 +505,45 @@ function QuerySysInfo()
     vMem="4096"
   fi
 
-	cat <<- DOC >> $logFile
-	["Query Result"]
-	{
-	  "System Conf":[
-	  {
-	    "CPU":[
-	    {
-	      "ID":"$CPUBrand",
-	      "Name":"$CPUName",
-	      "CPU Pinning": [ "${aCPU[@]}" ]
-	    }],
+  cat <<- DOC >> $logFile
+    ["Query Result"]
+    {
+      "System Conf":[
+      {
+        "CPU":[
+        {
+          "ID":"$CPUBrand",
+          "Name":"$CPUName",
+          "CPU Pinning": [ "${aCPU[@]}" ]
+        }],
 
-	    "Sys.Memory":"$SysMem",
+        "Sys.Memory":"$SysMem",
 
-	    "Isolation":[
-	    {
-	      "ReservedCPUs":"$ReservedCPUs",
-	      "AllCPUs":"$AllCPUs"
-	    }],
+        "Isolation":[
+        {
+          "ReservedCPUs":"$ReservedCPUs",
+          "AllCPUs":"$AllCPUs"
+        }],
 
-	    "PCI":[
-	    {
-	      "GPU Name":"$(<<< $GPUName sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g")",
-	      "GPU IDs": [ ${aGPU[@]} ],
-	      "USB IDs": [ ${aUSB[@]} ]
-	    }],
-	  }],
+        "PCI":[
+        {
+          "GPU Name":"$(<<< $GPUName sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g")",
+          "GPU IDs": [ ${aGPU[@]} ],
+          "USB IDs": [ ${aUSB[@]} ]
+        }],
+      }],
 
-	  "Virt Conf":[
-	  {
-	    "vCPUs":"$vCPU",
-	    "vCores":"$vCore",
-	    "vThreads":"$vThread",
-	    "vMem":"$vMem",
-	    "Converted GPU IDs ": [ ${aConvertedGPU[@]} ],
-	    "USB IDs": [ ${aConvertedUSB[@]} ]
-	  }]
-	}
-
-	DOC
+      "Virt Conf":[
+      {
+        "vCPUs":"$vCPU",
+        "vCores":"$vCore",
+        "vThreads":"$vThread",
+        "vMem":"$vMem",
+        "Converted GPU IDs ": [ ${aConvertedGPU[@]} ],
+        "USB IDs": [ ${aConvertedUSB[@]} ]
+      }]
+    }
+  DOC
 }
 
 function CheckIOMMUGroups()
@@ -636,7 +629,7 @@ function SetupHooks()
   StartScript
   EndScript
 
-  # Allow hooks to be execute
+  # Allow hooks to execute
   chmod +x -R $pHookVM >> $logFile 2>&1
 }
 
@@ -647,25 +640,25 @@ CreateHooks()
   chmod +x $fHook >> $logFile 2>&1
 
   # https://github.com/PassthroughPOST/VFIO-Tools/blob/master/libvirt_hooks/qemu
-	cat <<- 'DOC' >> $fHook
-	#!/bin/bash
-	GUEST_NAME="$1"
-	HOOK_NAME="$2"
-	STATE_NAME="$3"
-	MISC="${@:4}"
-	BASEDIR="$(dirname $0)"
-	HOOKPATH="$BASEDIR/qemu.d/$GUEST_NAME/$HOOK_NAME/$STATE_NAME"
-	set -e
-	if [ -f "$HOOKPATH" ] && [ -s "$HOOKPATH" ] && [ -x "$HOOKPATH" ]; then
-		eval "$HOOKPATH" "$@"
-	elif [ -d "$HOOKPATH" ]; then
-		while read file; do
-			if [ ! -z "$file" ]; then
-			eval "$file" "$@"
-			fi
-		done <<< "$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print;)"
-	fi
-	DOC
+  cat <<- 'DOC' >> $fHook
+    #!/bin/bash
+    GUEST_NAME="$1"
+    HOOK_NAME="$2"
+    STATE_NAME="$3"
+    MISC="${@:4}"
+    BASEDIR="$(dirname $0)"
+    HOOKPATH="$BASEDIR/qemu.d/$GUEST_NAME/$HOOK_NAME/$STATE_NAME"
+    set -e
+    if [ -f "$HOOKPATH" ] && [ -s "$HOOKPATH" ] && [ -x "$HOOKPATH" ]; then
+      eval "$HOOKPATH" "$@"
+    elif [ -d "$HOOKPATH" ]; then
+      while read file; do
+      if [ ! -z "$file" ]; then
+        eval "$file" "$@"
+      fi
+        done <<< "$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print;)"
+      fi
+  DOC
 }
 
 function StartScript()
@@ -675,32 +668,30 @@ function StartScript()
     mkdir -p $pHookVM/prepare/begin/ >> $logFile 2>&1
     touch    $pHookVM/prepare/begin/start.sh >> $logFile 2>&1
   fi
-	> $fHookStart
-	cat <<- DOC >> $fHookStart
-	#!/bin/bash
-	set -x
-	systemctl stop display-manager
-	for file in /sys/class/vtconsole/*; do
-		if (( \$(grep -c \"frame buffer\" \$file/name) == 1 )); then
-			echo 0 > \$file/bind
-		fi
-	done
-	echo efi-framebuffer.0 > /sys/bus/platform/drivers/efi-framebuffer/unbind
-	virsh nodedev-detach pci_0000_${aConvertedGPU[0]}
-	virsh nodedev-detach pci_0000_${aConvertedGPU[1]}
-	DOC
 
-	  for usb in ${aConvertedUSB[@]}; do
-	    echo -e "virsh nodedev-detach pci_0000_$usb"
-	  done >> $fHookStart
-
-	cat <<- DOC >> $fHookStart
-
-	modprobe vfio-pci
-	systemctl set-property --runtime -- user.slice AllowedCPUs=$ReservedCPUs
-	systemctl set-property --runtime -- system.slice AllowedCPUs=$ReservedCPUs
-	systemctl set-property --runtime -- init.scope AllowedCPUs=$ReservedCPUs
-	DOC
+  > $fHookStart
+  cat <<- DOC >> $fHookStart
+    #!/bin/bash
+    set -x
+    systemctl stop display-manager
+    for file in /sys/class/vtconsole/*; do
+      if (( \$(grep -c \"frame buffer\" \$file/name) == 1 )); then
+        echo 0 > \$file/bind
+      fi
+    done
+    echo efi-framebuffer.0 > /sys/bus/platform/drivers/efi-framebuffer/unbind
+    virsh nodedev-detach pci_0000_${aConvertedGPU[0]}
+    virsh nodedev-detach pci_0000_${aConvertedGPU[1]}
+  DOC
+    for usb in ${aConvertedUSB[@]}; do
+      echo -e "virsh nodedev-detach pci_0000_$usb"
+    done >> $fHookStart
+  cat <<- DOC >> $fHookStart
+    modprobe vfio-pci
+    systemctl set-property --runtime -- user.slice AllowedCPUs=$ReservedCPUs
+    systemctl set-property --runtime -- system.slice AllowedCPUs=$ReservedCPUs
+    systemctl set-property --runtime -- init.scope AllowedCPUs=$ReservedCPUs
+  DOC
 }
 
 function EndScript()
@@ -711,52 +702,49 @@ function EndScript()
     touch    $pHookVM/release/end/stop.sh >> $logFile 2>&1
   fi
 
-	> $fHookEnd
-	cat <<- DOC >> $fHookEnd
-	#!/bin/bash
-	set -x
-	virsh nodedev-reattach pci_0000_${aConvertedGPU[0]}
-	virsh nodedev-reattach pci_0000_${aConvertedGPU[1]}
-	DOC
-
-  for usb in ${aConvertedUSB[@]}; do
-    echo -e "virsh nodedev-reattach pci_0000_$usb"
-  done >> $fHookEnd
-
-	cat <<- DOC >> $fHookEnd
-	systemctl start display-manager
-	for file in /sys/class/vtconsole/*; do
-			if (( \$(grep -c "frame buffer" \$file/name) == 1 )); then
-				echo 1 > \$file/bind
-			fi
-		done
-	systemctl set-property --runtime -- user.slice AllowedCPUs=$AllCPUs
-	systemctl set-property --runtime -- system.slice AllowedCPUs=$AllCPUs
-	systemctl set-property --runtime -- init.scope AllowedCPUs=$AllCPUs
-	DOC
+  > $fHookEnd
+  cat <<- DOC >> $fHookEnd
+    #!/bin/bash
+    set -x
+    virsh nodedev-reattach pci_0000_${aConvertedGPU[0]}
+    virsh nodedev-reattach pci_0000_${aConvertedGPU[1]}
+  DOC
+    for usb in ${aConvertedUSB[@]}; do
+      echo -e "virsh nodedev-reattach pci_0000_$usb"
+    done >> $fHookEnd
+  cat <<- DOC >> $fHookEnd
+    systemctl start display-manager
+    for file in /sys/class/vtconsole/*; do
+      if (( \$(grep -c "frame buffer" \$file/name) == 1 )); then
+        echo 1 > \$file/bind
+      fi
+    done
+    systemctl set-property --runtime -- user.slice AllowedCPUs=$AllCPUs
+    systemctl set-property --runtime -- system.slice AllowedCPUs=$AllCPUs
+    systemctl set-property --runtime -- init.scope AllowedCPUs=$AllCPUs
+  DOC
 }
 
 function vNetworkCheck()
 {
   # If '$netName' doesn't exist then create it!
-  if [[ $(virsh net-autostart $netName 2>&1) = *"Network not found"* ]]; then
-
-	> $netPath
-	cat <<- DOC >> $netPath
-	<network>
-		<name>$netName</name>
-		<forward mode="nat">
-			<nat>
-			  <port start="1024" end="65535"/>
-		</nat>
-	</forward>
-	<ip address=192.168.122.1 netmask=255.255.255.0>
-		<dhcp>
-		  <range start=192.168.122.2 end=192.168.122.254/>
-		</dhcp>
-		</ip>
-	</network>
-	DOC
+  if [[ $(virsh net-autostart $netName 2>&1) =~ "Network not found" ]]; then
+    > $netPath
+    cat <<- DOC >> $netPath
+      <network>
+        <name>$netName</name>
+        <forward mode="nat">
+          <nat>
+            <port start="1024" end="65535"/>
+          </nat>
+        </forward>
+        <ip address=192.168.122.1 netmask=255.255.255.0>
+          <dhcp>
+            <range start=192.168.122.2 end=192.168.122.254/>
+          </dhcp>
+        </ip>
+      </network>
+    DOC
 
     virsh net-define $netPath >> $logFile 2>&1
     rm $netPath >> $logFile 2>&1
@@ -790,12 +778,12 @@ function SetupLibvirt()
   fi
 
   # Allow users in group libvirt to use virt-manager /etc/libvirt/libvirtd.conf
-  if [[ $(grep "unix_sock_group = \"libvirt\"" /etc/libvirt/libvirtd.conf) != "unix_sock_group = \"libvirt\"" ]]; then
-    sed -i "s/#unix_sock_group = \"libvirt\"/unix_sock_group = \"libvirt\"/" /etc/libvirt/libvirtd.conf
+  if [[ $(grep 'unix_sock_group = "libvirt"' /etc/libvirt/libvirtd.conf) != 'unix_sock_group = "libvirt"' ]]; then
+    sed -i 's/#unix_sock_group = "libvirt"/unix_sock_group = "libvirt"/' /etc/libvirt/libvirtd.conf
   fi
 
-  if [[ $(grep "unix_sock_rw_perms = \"0770\"" /etc/libvirt/libvirtd.conf) != "unix_sock_rw_perms = \"0770\"" ]]; then
-    sed -i "s/#unix_sock_rw_perms = \"0770\"/unix_sock_rw_perms = \"0770\"/" /etc/libvirt/libvirtd.conf
+  if [[ $(grep 'unix_sock_rw_perms = "0770"' /etc/libvirt/libvirtd.conf) != 'unix_sock_rw_perms = "0770"' ]]; then
+    sed -i 's/#unix_sock_rw_perms = "0770"/unix_sock_rw_perms = "0770"/' /etc/libvirt/libvirtd.conf
   fi
 
   # Kill virt-manager because it shouldn't opened during the install
