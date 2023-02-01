@@ -595,16 +595,16 @@ function CheckIOMMUGroups()
   local invalid=$(tput setaf 1)invalid$(tput sgr0)
   local valid=$(tput setaf 2)valid$(tput sgr0)
   case ${#aGPU[@]} in
-    2) echo -e "GPU is $valid for passthrough! = [ ${aGPU[*]} ]" ;;
+    2) echo -e "GPU: $valid for passthrough! = [ ${aGPU[*]} ]" ;;
     *)
-       echo "GPU is $invalid for passthrough!"
+       echo "GPU: $invalid for passthrough!"
        exit 1
        ;;
   esac
   case ${#aUSB[@]} in
-    2) echo -e "Found $valid USB for passthrough! = [ ${aUSB[*]} ]" ;;
+    2) echo -e "USB: $valid for passthrough! = [ ${aUSB[*]} ]" ;;
     *)
-       echo "Found $invalid USB for passthrough!"
+       echo "USB: $invalid for passthrough!"
        exit 1
        ;;
   esac
