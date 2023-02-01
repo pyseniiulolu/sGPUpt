@@ -448,8 +448,8 @@ function QuerySysInfo()
   AllCPUs="0-$(($(nproc)-1))"
 
   # Stop the script if we have more than one GPU in the system
-  local lsp=$(lspci)
-  if (( $(lspci | grep "VGA" | wc -l) > 1 )); then
+  local lines=$(lspci | grep -c VGA)
+  if [[ $lines -gt 1 ]]; then
     logger error "There are too many GPUs in the system!"
   fi
 
