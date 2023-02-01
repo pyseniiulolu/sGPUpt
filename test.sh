@@ -14,40 +14,32 @@ function CheckIOMMUGroupsTest()
       deviceID=$(echo ${d##*/} | cut -c6-)
       deviceOutput=$(lspci -nns $deviceID)
       gr=$(tput setaf 99)${g##*/}$(tput sgr0)
+      indicator="$(tput setaf 222)>$(tput sgr0)"
       echo -e "\tGroup $gr - $deviceOutput"
 
       if [[ $deviceOutput =~ (VGA|Audio) ]] && [[ $deviceOutput =~ $GrepGPU ]]; then
-	 echo found matching GPU device $deviceID, adding to aGPU arr
          aGPU[$h]=$deviceID
          ((h++, allocateGPUOnCycle=1))
          tput cuu1
-         echo -e "      $(tput setaf 2)>$(tput sgr0)"
-      elif [[ $deviceOutput =~ (USB Controller) ]]; then
-	 echo found matching USB con $deviceID, adding to aUSB arr
+         echo -e "      $indicator"
+      elif [[ $deviceOutput =~ (USB controller) ]]; then
          aUSB[$k]=$deviceID
          ((k++))
          tput cuu1
-         echo -e "      $(tput setaf 2)>$(tput sgr0)"
+         echo -e "      $indicator"
        else
-	 echo found misc device
          ((miscDevice++))
       fi
     done
 
     # If $aGPU was defined earlier but it turns out to be in an unisolated group then dump the variable
     if [[ ${#aGPU[@]} -gt 0 ]] && [[ $miscDevice -gt 0 ]] && [[ $allocateGPUOnCycle -eq 1 ]]; then
-      echo unsetting aGPU
       unset aGPU
     elif [[ ${#aUSB[@]} -gt 0 ]] && [[ $miscDevice -gt 0 ]]; then
-      echo "aUSB arr len is > 0, but misc devices found"
-      echo "contents before deletion: ${aUSB[@]}"
-      for((m=$((${#aUSB[@]}-1));m>-1;m--)); do
-	echo unsetting ${aUSB[$m]}
+      for((m=${#aUSB[@]};m>-1;m--)); do
         unset aUSB[$m]
-        echo "contents after deletion: ${aUSB[@]}"
       done
     fi
-    echo unsetting miscDevice
     unset miscDevice allocateGPUOnCycle
   done
 
