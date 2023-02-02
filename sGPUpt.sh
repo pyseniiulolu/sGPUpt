@@ -687,9 +687,9 @@ function StartScript()
 		
 DOC
 		if [[ $GPUType == "NVIDIA" ]]; then
-		  echo -e "modprobe -r nvidia nvidia_drm nvidia_uvm nvidia_modeset\n" >> $fHookStart
+		  echo -e "modprobe -r nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookStart
 		elif [[ $GPUType == "AMD" ]]; then
-		  echo -e "modprobe -r amdgpu\n" >> $fHookStart
+		  echo -e "modprobe -r amdgpu" >> $fHookStart
 		fi
 
 		for gpu in ${aConvertedGPU[@]}; do
@@ -732,13 +732,14 @@ DOC
 		done >> $fHookEnd
 		
 	cat <<- DOC >> $fHookEnd
+		
 		modprobe -r vfio-pci
 DOC
 		
 		if [[ $GPUType == "NVIDIA" ]]; then
-		  echo -e "\nmodprobe nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookEnd
+		  echo -e "modprobe nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookEnd
 		elif [[ $GPUType == "AMD" ]]; then
-		  echo -e "\nmodprobe amdgpu" >> $fHookEnd
+		  echo -e "modprobe amdgpu" >> $fHookEnd
 		fi
 	cat <<- DOC >> $fHookEnd
 		
