@@ -248,7 +248,7 @@ function InstallPackages()
 
   # Which Distro
   if [[ -e /etc/arch-release ]]; then
-    echo yes | pacman -S --needed "${arch_depends[@]}" >> $logFile 2>&1
+    yes | pacman -S --needed "${arch_depends[@]}" >> $logFile 2>&1
   elif [[ -e /etc/debian_version ]]; then
     case $NAME in
       "Ubuntu") arr=ubuntu ;;
