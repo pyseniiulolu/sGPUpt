@@ -680,7 +680,7 @@ function StartScript()
 		
 		systemctl stop display-manager
 		if [[ -n \$(pgrep -x "gdm-x-session") ]]; then
- 		  killall gdm-x-session
+		  killall gdm-x-session
 		elif [[ -n \$(pgrep -x "gdm-wayland-session") ]]; then
 		  killall gdm-wayland-session
 		fi
