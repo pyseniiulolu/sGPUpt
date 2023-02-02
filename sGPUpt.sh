@@ -41,8 +41,8 @@ virtIO_url="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/sta
 
 function header(){
   #TODO: parameterize offset width
-  url="https://github.com/$author/$tool/issues"
-  rep="Report issues @ $url"
+  url="https://github.com/$author/$tool"
+  rep="Report issues @ $url/issues"
   tag="${RED}♥${DEFAULT} $tool made by $author ${RED}♥${DEFAULT}"
   blen=$(<<< $rep wc -m)
   row=$((blen+3))
@@ -585,6 +585,8 @@ function CheckIOMMUGroups()
     GPUType="NVIDIA"
   elif [[ $GPUName =~ "Radeon" ]]; then
     GPUType="AMD"
+  elif [[ $GPUName =~ "Arc" ]]; then
+     logger error "Intel Arc is unsupported, please refer to ${url}#supported-hardware"
   fi
   
   for i in "${!aGPU[@]}"; do
