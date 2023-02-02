@@ -687,9 +687,9 @@ function StartScript()
 		
 DOC
 		if [[ $GPUType == "NVIDIA" ]]; then
-		  echo -e "modprobe -r nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookEnd
+		  echo -e "modprobe -r nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookStart
 		elif [[ $GPUType == "AMD" ]]; then
-		  echo -e "modprobe -r amdgpu" >> $fHookEnd
+		  echo -e "modprobe -r amdgpu" >> $fHookStart
 		fi
 
 		for gpu in ${aConvertedGPU[@]}; do
