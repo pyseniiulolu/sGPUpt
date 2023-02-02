@@ -107,7 +107,7 @@ function main()
 {
   if [[ $(whoami) != "root" ]]; then
     logger error "This script requires root privileges!"
-  elif [[ -z $VMName || -z $GPUType ]]; then
+  elif [[ -z $VMName ]]; then
     logger error "Usage: sudo ./sGPUpt.sh '{VM-Name}'"
   elif [[ $VMName =~ " " ]]; then
     logger error "Your machine's name cannot contain the character: ' '"
