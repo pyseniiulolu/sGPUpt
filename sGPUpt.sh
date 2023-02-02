@@ -645,24 +645,24 @@ CreateHooks()
 
   # https://github.com/PassthroughPOST/VFIO-Tools/blob/master/libvirt_hooks/qemu
 	cat <<- 'DOC' >> $fHook
-    #!/bin/bash
-    GUEST_NAME="$1"
-    HOOK_NAME="$2"
-    STATE_NAME="$3"
-    MISC="${@:4}"
-    BASEDIR="$(dirname $0)"
-    HOOKPATH="$BASEDIR/qemu.d/$GUEST_NAME/$HOOK_NAME/$STATE_NAME"
-    set -e
-    if [ -f "$HOOKPATH" ] && [ -s "$HOOKPATH" ] && [ -x "$HOOKPATH" ]; then
-      eval "$HOOKPATH" "$@"
-    elif [ -d "$HOOKPATH" ]; then
-      while read file; do
-      if [ ! -z "$file" ]; then
-        eval "$file" "$@"
-      fi
-        done <<< "$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print;)"
-      fi
-	DOC
+		#!/bin/bash
+		GUEST_NAME="$1"
+		HOOK_NAME="$2"
+		STATE_NAME="$3"
+		MISC="${@:4}"
+		BASEDIR="$(dirname $0)"
+		HOOKPATH="$BASEDIR/qemu.d/$GUEST_NAME/$HOOK_NAME/$STATE_NAME"
+		set -e
+		if [ -f "$HOOKPATH" ] && [ -s "$HOOKPATH" ] && [ -x "$HOOKPATH" ]; then
+		  eval "$HOOKPATH" "$@"
+		elif [ -d "$HOOKPATH" ]; then
+		  while read file; do
+		    if [ ! -z "$file" ]; then
+		      eval "$file" "$@"
+		    fi
+		  done <<< "$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print;)"
+		fi
+DOC
 }
 
 function StartScript()
@@ -675,39 +675,36 @@ function StartScript()
 
   > $fHookStart
 	cat <<- DOC >> $fHookStart
-      #!/bin/bash
-      set -x
-      systemctl stop display-manager
-      if [[ -n \$(pgrep -x "gdm-x-session") ]]; then
-        killall gdm-x-session
-      elif [[ -n \$(pgrep -x "gdm-wayland-session") ]]; then
-        killall gdm-wayland-session
-      fi
-      for file in /sys/class/vtconsole/*; do
-        if (( \$(grep -c \"frame buffer\" \$file/name) == 1 )); then
-          echo 0 > \$file/bind
-        fi
-      done
-      # Only needed for some GPUs? I'll mess with this later...
-      echo efi-framebuffer.0 > /sys/bus/platform/drivers/efi-framebuffer/unbind
+		#!/bin/bash
+		set -x
+		
+		systemctl stop display-manager
+		if [[ -n \$(pgrep -x "gdm-x-session") ]]; then
+ 		  killall gdm-x-session
+		elif [[ -n \$(pgrep -x "gdm-wayland-session") ]]; then
+		  killall gdm-wayland-session
+		fi
+		
+		for file in /sys/class/vtconsole/*; do
+		  if (( \$(grep -c \"frame buffer\" \$file/name) == 1 )); then
+		    echo 0 > \$file/bind
+		  fi
+		done
+		
+		# Only needed for some GPUs? I'll mess with this later...
+		echo efi-framebuffer.0 > /sys/bus/platform/drivers/efi-framebuffer/unbind
+		
+		virsh nodedev-detach pci_0000_${aConvertedGPU[0]}
+		virsh nodedev-detach pci_0000_${aConvertedGPU[1]}
 DOC
-      if [[ $GPUType == "NVIDIA" ]]; then
-        echo -e "modprobe -r nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookStart
-      elif [[ $GPUType == "AMD" ]]; then
-        echo -e "modprobe -r amdgpu" >> $fHookStart
-      fi
+		for usb in ${aConvertedUSB[@]}; do
+		  echo -e "virsh nodedev-detach pci_0000_$usb"
+		done >> $fHookStart
 	cat <<- DOC >> $fHookStart
-      virsh nodedev-detach pci_0000_${aConvertedGPU[0]}
-      virsh nodedev-detach pci_0000_${aConvertedGPU[1]}
-DOC
-      for usb in ${aConvertedUSB[@]}; do
-        echo -e "virsh nodedev-detach pci_0000_$usb"
-      done >> $fHookStart
-	cat <<- DOC >> $fHookStart
-      modprobe vfio-pci
-      systemctl set-property --runtime -- user.slice AllowedCPUs=$ReservedCPUs
-      systemctl set-property --runtime -- system.slice AllowedCPUs=$ReservedCPUs
-      systemctl set-property --runtime -- init.scope AllowedCPUs=$ReservedCPUs
+		
+		systemctl set-property --runtime -- user.slice AllowedCPUs=$ReservedCPUs
+		systemctl set-property --runtime -- system.slice AllowedCPUs=$ReservedCPUs
+		systemctl set-property --runtime -- init.scope AllowedCPUs=$ReservedCPUs
 DOC
 }
 
@@ -721,31 +718,28 @@ function EndScript()
 
   > $fHookEnd
 	cat <<- DOC >> $fHookEnd
-      #!/bin/bash
-      set -x
-      virsh nodedev-reattach pci_0000_${aConvertedGPU[0]}
-      virsh nodedev-reattach pci_0000_${aConvertedGPU[1]}
-      modprobe -r vfio_pci
+		#!/bin/bash
+		set -x
+	
+		virsh nodedev-reattach pci_0000_${aConvertedGPU[0]}
+		virsh nodedev-reattach pci_0000_${aConvertedGPU[1]}
 DOC
-      for usb in ${aConvertedUSB[@]}; do
-        echo -e "virsh nodedev-reattach pci_0000_$usb"
-      done >> $fHookEnd
-
-      if [[ $GPUType == "NVIDIA" ]]; then
-        echo -e "modprobe nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookEnd
-      elif [[ $GPUType == "AMD" ]]; then
-        echo -e "modprobe amdgpu" >> $fHookEnd
-      fi
+		for usb in ${aConvertedUSB[@]}; do
+		  echo -e "virsh nodedev-reattach pci_0000_$usb"
+		done >> $fHookEnd
 	cat <<- DOC >> $fHookEnd
-      systemctl start display-manager
-      for file in /sys/class/vtconsole/*; do
-        if (( \$(grep -c "frame buffer" \$file/name) == 1 )); then
-          echo 1 > \$file/bind
-        fi
-      done
-      systemctl set-property --runtime -- user.slice AllowedCPUs=$AllCPUs
-      systemctl set-property --runtime -- system.slice AllowedCPUs=$AllCPUs
-      systemctl set-property --runtime -- init.scope AllowedCPUs=$AllCPUs
+		
+		systemctl start display-manager
+		
+		for file in /sys/class/vtconsole/*; do
+		  if (( \$(grep -c "frame buffer" \$file/name) == 1 )); then
+		    echo 1 > \$file/bind
+		  fi
+		done
+	
+		systemctl set-property --runtime -- user.slice AllowedCPUs=$AllCPUs
+		systemctl set-property --runtime -- system.slice AllowedCPUs=$AllCPUs
+		systemctl set-property --runtime -- init.scope AllowedCPUs=$AllCPUs
 DOC
 }
 
@@ -755,19 +749,19 @@ function vNetworkCheck()
   if [[ $(virsh net-autostart $netName 2>&1) =~ "Network not found" ]]; then
     > $netPath
 	cat <<- 'DOC' >> $netPath
-      <network>
-        <name>$netName</name>
-        <forward mode="nat">
-          <nat>
-            <port start="1024" end="65535"/>
-          </nat>
-        </forward>
-        <ip address=192.168.122.1 netmask=255.255.255.0>
-          <dhcp>
-            <range start=192.168.122.2 end=192.168.122.254/>
-          </dhcp>
-        </ip>
-      </network>
+		<network>
+		  <name>$netName</name>
+		  <forward mode="nat">
+		    <nat>
+		      <port start="1024" end="65535"/>
+		    </nat>
+		  </forward>
+		  <ip address=192.168.122.1 netmask=255.255.255.0>
+		    <dhcp>
+		      <range start=192.168.122.2 end=192.168.122.254/>
+		    </dhcp>
+		  </ip>
+		</network>
 DOC
 
     virsh net-define $netPath >> $logFile 2>&1
