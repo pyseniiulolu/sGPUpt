@@ -20,9 +20,6 @@ WHITEBG=$(tput smso)
 RESETBG=$(tput sgr0)
 UNDERLINE=$(tput smul)
 
-# Main Vars
-VMName="$1"
-
 # Network Vars
 netName="default"
 netPath="/tmp/$netName.xml"
@@ -33,19 +30,12 @@ ISOPath="/etc/sGPUpt/iso"
 #DiskPath=/home/$SUDO_USER/Documents/qemu-images
 #ISOPath=/home/$SUDO_USER/Documents/iso
 
-# Hooks Vars
-pHookVM="/etc/libvirt/hooks/qemu.d/$VMName"
-fHook="/etc/libvirt/hooks/qemu"
-fHookStart="/etc/libvirt/hooks/qemu.d/$VMName/prepare/begin/start.sh"
-fHookEnd="/etc/libvirt/hooks/qemu.d/$VMName/release/end/stop.sh"
-
 # Compile Vars
 qemuBranch="v7.2.0"
 qemuDir="/etc/sGPUpt/qemu-emulator"
 edkBranch="edk2-stable202211"
 edkDir="/etc/sGPUpt/edk-compile"
 
-logFile="/home/$SUDO_USER/Desktop/sGPUpt.log"
 tab="$(printf '\t')"
 virtIO_url="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
 
@@ -107,12 +97,6 @@ function main()
 {
   if [[ $(whoami) != "root" ]]; then
     logger error "This script requires root privileges!"
-  elif [[ -z $VMName ]]; then
-    logger error "Usage: sudo ./sGPUpt.sh '{VM-Name}'"
-  elif [[ $VMName =~ " " ]]; then
-    logger error "Your machine's name cannot contain the character: ' '"
-  elif [[ $VMName =~ "/" ]]; then
-    logger error "Your machine's name cannot contain the character: '/'"
   elif [[ -z $(grep -E -m 1 "svm|vmx" /proc/cpuinfo) ]]; then
     logger error "This system doesn't support virtualization, please enable it then run this script again!"
   elif [[ ! -e /sys/firmware/efi ]]; then
@@ -124,7 +108,24 @@ function main()
   header
 
   # Start logging
+  logFile="/home/$SUDO_USER/Desktop/sGPUpt.log"
   > $logFile
+
+  until [[ -n $VMName ]]; do
+    read -p "$(logger info "Enter VM name: ")" REPLY
+    case $REPLY in
+      "")    continue ;;
+      *" "*) logger warn "Your machine's name cannot contain the character: ' '" ;; 
+      *"/"*) logger warn "Your machine's name cannot contain the character: '/'" ;;
+      *)     VMName=$REPLY
+    esac
+  done
+
+  # Hooks Vars
+  pHookVM="/etc/libvirt/hooks/qemu.d/$VMName"
+  fHook="/etc/libvirt/hooks/qemu"
+  fHookStart="/etc/libvirt/hooks/qemu.d/$VMName/prepare/begin/start.sh"
+  fHookEnd="/etc/libvirt/hooks/qemu.d/$VMName/release/end/stop.sh"
 
   # Call Funcs
   QuerySysInfo
