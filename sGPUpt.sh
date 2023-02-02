@@ -455,30 +455,15 @@ function QuerySysInfo()
   fi
 
   # Determine which GPU type
-  if [[ $GPUType == "NVIDIA" ]]; then
-    grepGPU="NVIDIA"
-    GPUName=${GREEN}$(glxinfo -B | grep "renderer string" | cut -d":" -f2 | cut -c2- | cut -d"/" -f1)${DEFAULT}
-  elif [[ $GPUType == "AMD" ]]; then
-    grepGPU="AMD/ATI"
-    GPUName=${RED}$(glxinfo -B | grep "renderer string" | cut -d":" -f2 | cut -c2- | cut -d"(" -f1 | head -c -2)${DEFAULT}
-  fi
+  case $GPUType in
+    "NVIDIA") grepGPU="NVIDIA"  ;;
+    "AMD")    grepGPU="AMD/ATI" ;;
+  esac
+
+  GPUName$(lspci | grep VGA | grep $grepGPU | rev | cut -d"[" -f1 | cut -d"]" -f2 | rev)
 
   # Get passthrough devices
   CheckIOMMUGroups
-
-  # Stop the script if any of these variables are undefined
-  if [[ -z ${aGPU[0]} || -z ${aGPU[1]} ]]; then
-    logger error "Couldn't find any GPU on the system..."
-  elif [[ -z $GPUName ]]; then
-    logger error "Failed to find GPU name, do you have drivers installed?"
-  elif [[ -z ${aUSB[*]} ]]; then
-    logger error "Couldn't find any USB controllers on the system..."
-  fi
-
-  read -p "$(logger info "Is this the correct GPU? [ $GPUName ]") [y/N]: " CHOICE
-  if [[ $CHOICE != @("y"|"Y") ]]; then
-    logger error "Please report this if your GPU wasn't detected correctly!"
-  fi
 
   # CPU topology
   for core in $PT; do ((int+=1)); done
@@ -528,7 +513,7 @@ function QuerySysInfo()
 
 	    "PCI":[
 	    {
-	        "GPU Name":"$(<<< $GPUName sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g')",
+	        "GPU Name":"$GPUName",
 	        "GPU IDs": [ ${aGPU[@]} ],
 	        "USB IDs": [ ${aUSB[@]} ]
 	        }],
