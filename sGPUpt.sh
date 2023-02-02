@@ -685,22 +685,23 @@ function StartScript()
 		  killall gdm-wayland-session
 		fi
 		
-		for file in /sys/class/vtconsole/*; do
-		  if (( \$(grep -c "frame buffer" \$file/name) == 1 )); then
-		    echo 0 > \$file/bind
-		  fi
-		done
-		
-		# Only needed for some GPUs? I'll mess with this later...
-		echo efi-framebuffer.0 > /sys/bus/platform/drivers/efi-framebuffer/unbind
-		
-		virsh nodedev-detach pci_0000_${aConvertedGPU[0]}
-		virsh nodedev-detach pci_0000_${aConvertedGPU[1]}
 DOC
+		if [[ $GPUType == "NVIDIA" ]]; then
+		  echo -e "modprobe -r nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookEnd
+		elif [[ $GPUType == "AMD" ]]; then
+		  echo -e "modprobe -r amdgpu" >> $fHookEnd
+		fi
+
+		for gpu in ${aConvertedGPU[@]}; do
+		  echo -e "virsh nodedev-detach pci_0000_$gpu"
+		done >> $fHookStart
+
 		for usb in ${aConvertedUSB[@]}; do
 		  echo -e "virsh nodedev-detach pci_0000_$usb"
 		done >> $fHookStart
 	cat <<- DOC >> $fHookStart
+		
+		modprobe vfio-pci
 		
 		systemctl set-property --runtime -- user.slice AllowedCPUs=$ReservedCPUs
 		systemctl set-property --runtime -- system.slice AllowedCPUs=$ReservedCPUs
@@ -720,22 +721,28 @@ function EndScript()
 	cat <<- DOC >> $fHookEnd
 		#!/bin/bash
 		set -x
-	
-		virsh nodedev-reattach pci_0000_${aConvertedGPU[0]}
-		virsh nodedev-reattach pci_0000_${aConvertedGPU[1]}
+		
 DOC
+		for gpu in ${aConvertedGPU[@]}; do
+		  echo -e "virsh nodedev-reattach pci_0000_$gpu"
+		done >> $fHookEnd
+
 		for usb in ${aConvertedUSB[@]}; do
 		  echo -e "virsh nodedev-reattach pci_0000_$usb"
 		done >> $fHookEnd
+		
+	cat <<- DOC >> $fHookEnd
+		modprobe -r vfio-pci
+DOC
+		
+		if [[ $GPUType == "NVIDIA" ]]; then
+		  echo -e "modprobe nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookEnd
+		elif [[ $GPUType == "AMD" ]]; then
+		  echo -e "modprobe amdgpu" >> $fHookEnd
+		fi
 	cat <<- DOC >> $fHookEnd
 		
 		systemctl start display-manager
-		
-		for file in /sys/class/vtconsole/*; do
-		  if (( \$(grep -c "frame buffer" \$file/name) == 1 )); then
-		    echo 1 > \$file/bind
-		  fi
-		done
 	
 		systemctl set-property --runtime -- user.slice AllowedCPUs=$AllCPUs
 		systemctl set-property --runtime -- system.slice AllowedCPUs=$AllCPUs
