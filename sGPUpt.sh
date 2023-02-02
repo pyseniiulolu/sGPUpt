@@ -537,7 +537,7 @@ function CheckIOMMUGroups()
       indicator="$(tput setaf 222)>$(tput sgr0)"
       echo -e "\tGroup $gr - $deviceOutput"
 
-      if [[ $deviceOutput =~ (VGA|Audio) ]] && [[ $deviceOutput =~ ("NVIDIA|AMD/ATI") ]]; then
+      if [[ $deviceOutput =~ (VGA|Audio) ]] && [[ $deviceOutput =~ ("NVIDIA"|"AMD/ATI") ]]; then
          aGPU[$h]=$deviceID
          ((h++, allocateGPUOnCycle=1))
          tput cuu1
