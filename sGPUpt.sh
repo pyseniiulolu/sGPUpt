@@ -22,17 +22,16 @@ UNDERLINE=$(tput smul)
 
 # Main Vars
 VMName="$1"
-GPUType="${2^^}"
 
 # Network Vars
 netName="default"
 netPath="/tmp/$netName.xml"
 
 # Storage Vars
-DiskPath="/etc/sGPUpt/qemu-images"
-ISOPath="/etc/sGPUpt/iso/"
+DiskPath="/etc/sGPUpt/disks"
+ISOPath="/etc/sGPUpt/iso"
 #DiskPath=/home/$SUDO_USER/Documents/qemu-images
-#ISOPath=/home/$SUDO_USER/Documents/iso/
+#ISOPath=/home/$SUDO_USER/Documents/iso
 
 # Hooks Vars
 pHookVM="/etc/libvirt/hooks/qemu.d/$VMName"
@@ -108,8 +107,8 @@ function main()
 {
   if [[ $(whoami) != "root" ]]; then
     logger error "This script requires root privileges!"
-  elif [[ -z $VMName || -z $GPUType || $GPUType != @("NVIDIA"|"AMD") ]]; then
-    logger error "Usage: sudo ./sGPUpt.sh \"{VM-Name}\" <NVIDIA|AMD>"
+  elif [[ -z $VMName || -z $GPUType ]]; then
+    logger error "Usage: sudo ./sGPUpt.sh '{VM-Name}'"
   elif [[ $VMName =~ " " ]]; then
     logger error "Your machine's name cannot contain the character: ' '"
   elif [[ $VMName =~ "/" ]]; then
@@ -135,9 +134,6 @@ function main()
   SetupLibvirt
   SetupHooks
   CreateVM
-
-  # End Information
-  logger info "Add your desired OS, then start your VM with Virt Manager or 'sudo virsh start'"
 
   # NEEDED TO FIX DEBIAN-BASED DISTROS USING VIRT-MANAGER
   if [[ $firstInstall == "true" ]]; then
@@ -454,14 +450,6 @@ function QuerySysInfo()
     logger error "There are too many GPUs in the system!"
   fi
 
-  # Determine which GPU type
-  case $GPUType in
-    "NVIDIA") grepGPU="NVIDIA"  ;;
-    "AMD")    grepGPU="AMD/ATI" ;;
-  esac
-
-  GPUName=$(lspci | grep VGA | grep $grepGPU | rev | cut -d"[" -f1 | cut -d"]" -f2 | rev)
-
   # Get passthrough devices
   CheckIOMMUGroups
 
@@ -549,7 +537,7 @@ function CheckIOMMUGroups()
       indicator="$(tput setaf 222)>$(tput sgr0)"
       echo -e "\tGroup $gr - $deviceOutput"
 
-      if [[ $deviceOutput =~ (VGA|Audio) ]] && [[ $deviceOutput =~ $grepGPU ]]; then
+      if [[ $deviceOutput =~ (VGA|Audio) ]] && [[ $deviceOutput =~ ("NVIDIA|AMD/ATI") ]]; then
          aGPU[$h]=$deviceID
          ((h++, allocateGPUOnCycle=1))
          tput cuu1
@@ -590,6 +578,14 @@ function CheckIOMMUGroups()
        ;;
     *) echo -e "USB: $valid for passthrough! = [ ${aUSB[*]} ]" ;;
   esac
+  
+  GPUName=$(lspci | grep VGA | grep -E "NVIDIA|AMD/ATI" | rev | cut -d"[" -f1 | cut -d"]" -f2 | rev)
+  if [[ $GPUName =~ "GeForce" ]]; then
+    GPUType="NVIDIA"
+  elif [[ $GPUName =~ "Radeon" ]]; then
+    GPUType="AMD"
+  fi
+  
   for i in "${!aGPU[@]}"; do
     k=$(<<< ${aGPU[$i]} tr :. _)
     aConvertedGPU[$i]="$k"
@@ -901,6 +897,7 @@ function CreateVM()
   InsertUSB
 
   logger success "Finished creating $VMName!"
+  logger info "Add your desired OS, then start your VM with Virt Manager or 'sudo virsh start'"
 }
 
 function HandleDisk()
