@@ -460,7 +460,7 @@ function QuerySysInfo()
     "AMD")    grepGPU="AMD/ATI" ;;
   esac
 
-  GPUName$(lspci | grep VGA | grep $grepGPU | rev | cut -d"[" -f1 | cut -d"]" -f2 | rev)
+  GPUName=$(lspci | grep VGA | grep $grepGPU | rev | cut -d"[" -f1 | cut -d"]" -f2 | rev)
 
   # Get passthrough devices
   CheckIOMMUGroups
