@@ -610,7 +610,7 @@ function create_vm()
 
   case $CHOICE in
     y|Y) handle_disk
-      disk_pretty=" Disk:\"${DiskSize}G\", "
+      disk_pretty="${DiskSize}G"
       ;;
     ""|N) disk_pretty=" "
   esac
@@ -971,7 +971,7 @@ function print_vm_data()
 	  "Name":"$VMName"
 	  "vCPU":"$vCPU"
 	  "Memory":"$vMem"
-	  "Disk":"${disk_pretty}"
+	  "Disk":"$disk_pretty"
 	  "QEMU Version":"$vQEMU"
 	  "Additional Devices":"${aGPU[@]} ${aUSB[@]}"
 	}
@@ -984,7 +984,7 @@ DOC
 	  "Name":"$VMName"
 	  "vCPU":"$vCPU"
 	  "Memory":"$vMem"
-	  "Disk":"${disk_pretty}"
+	  "Disk":"$disk_pretty"
 	  "QEMU Version":"$vQEMU"
 	  "Additional Devices":"${aGPU[@]} ${aUSB[@]}"
 	}
