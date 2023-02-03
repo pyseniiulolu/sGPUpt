@@ -970,10 +970,10 @@ function print_vm_data()
 	  "System Type":"$SysType"
 	  "Name":"$VMName"
 	  "vCPU":"$vCPU"
-	  "Memory":"vMem"
+	  "Memory":"$vMem"
 	  "Disk":"${disk_pretty}"
 	  "QEMU Version":"$vQEMU"
-	  "Additional Devices":"${aGPU[@]} ${aGPU[@]}"
+	  "Additional Devices":"${aGPU[@]} ${aUSB[@]}"
 	}
 DOC
 
@@ -983,7 +983,7 @@ DOC
 	  "System Type":"$SysType"
 	  "Name":"$VMName"
 	  "vCPU":"$vCPU"
-	  "Memory":"vMem"
+	  "Memory":"$vMem"
 	  "Disk":"${disk_pretty}"
 	  "QEMU Version":"$vQEMU"
 	  "Additional Devices":"${aGPU[@]} ${aUSB[@]}"
