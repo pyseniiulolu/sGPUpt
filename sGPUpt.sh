@@ -480,6 +480,13 @@ function query_system()
 ###############################################################################
 function find_pcie_devices()
 {
+  GPUName=$(lspci | grep VGA | grep -E "NVIDIA|AMD/ATI|Arc" | rev | cut -d"[" -f1 | cut -d"]" -f2 | rev)
+  case $GPUName in
+    *"GeForce"*) GPUType="NVIDIA" ;;
+    *"Radeon"*)  GPUType="AMD" ;;
+    *"Arc"*)     logger error "Intel Arc is unsupported, please refer to ${url}#supported-hardware" ;;
+  esac
+
   ((h=0, allocateGPUOnCycle=0))
   for g in $(find /sys/kernel/iommu_groups/* -maxdepth 0 -type d | sort -V); do
 
@@ -491,7 +498,7 @@ function find_pcie_devices()
       indicator="$(tput setaf 222)>$(tput sgr0)"
       echo -e "\tGroup $gr - $deviceOutput"
 
-      if [[ $deviceOutput =~ (VGA|Audio) ]] && [[ $deviceOutput =~ ("NVIDIA"|"AMD/ATI") ]]; then
+      if [[ $deviceOutput =~ (VGA|Audio) ]] && [[ $deviceOutput =~ ("NVIDIA"|"AMD/ATI"|"Arc") ]]; then
          aGPU[$h]=$deviceID
          ((h++, allocateGPUOnCycle=1))
          tput cuu1
@@ -532,15 +539,6 @@ function find_pcie_devices()
        ;;
     *) echo -e "USB: $valid for passthrough! = [ ${aUSB[*]} ]" ;;
   esac
-  
-  GPUName=$(lspci | grep VGA | grep -E "NVIDIA|AMD/ATI" | rev | cut -d"[" -f1 | cut -d"]" -f2 | rev)
-  if [[ $GPUName =~ "GeForce" ]]; then
-    GPUType="NVIDIA"
-  elif [[ $GPUName =~ "Radeon" ]]; then
-    GPUType="AMD"
-  elif [[ $GPUName =~ "Arc" ]]; then
-    logger error "Intel Arc is unsupported, please refer to ${url}#supported-hardware"
-  fi
   
   for i in "${!aGPU[@]}"; do
     k=$(<<< ${aGPU[$i]} tr :. _)
