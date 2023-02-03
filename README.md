@@ -36,7 +36,7 @@ sudo ./sGPUpt.sh
 |   CPU + GPU     |  Status |
 | --------------- | ------- |
 | AMD + Nvidia    |    ✔️   |
-| AMD + AMD       | ️   ✔️   |
+| AMD + AMD       |    ✔️   |
 | AMD + Intel     |    ❌   |
 | Intel + Nvidia  |    ✔️   |
 | Intel + AMD     |    ✔️   |
