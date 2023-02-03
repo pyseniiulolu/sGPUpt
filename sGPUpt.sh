@@ -248,7 +248,7 @@ function find_pcie_devices()
   done
 
   case ${#aGPU[@]} in
-    2) echo -e "\nFound valid USB for passthrough! = [ ${aGPU[*]} ]" >> $logFile 2>&1 ;;
+    2) echo -e "\nFound valid GPU for passthrough! = [ ${aGPU[*]} ]" >> $logFile 2>&1 ;;
     *) logger error "GPU is not isolated for passthrough!" ;;
   esac
   case ${#aUSB[@]} in
@@ -973,7 +973,7 @@ function print_vm_data()
 	  "Memory":"$vMem"
 	  "Disk":"$disk_pretty"
 	  "QEMU Version":"$vQEMU"
-	  "Additional Devices":"${aGPU[@]} ${aUSB[@]}"
+	  "Additional Devices": [ ${aGPU[@]} ${aUSB[@]} ]
 	}
 DOC
 
@@ -986,7 +986,7 @@ DOC
 	  "Memory":"$vMem"
 	  "Disk":"$disk_pretty"
 	  "QEMU Version":"$vQEMU"
-	  "Additional Devices":"${aGPU[@]} ${aUSB[@]}"
+	  "Additional Devices": [ ${aGPU[@]} ${aUSB[@]} ]
 	}
 DOC
 }
