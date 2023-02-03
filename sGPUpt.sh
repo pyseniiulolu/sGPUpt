@@ -964,6 +964,7 @@ DOC
 }
 
 function print_query()
+{
 	cat <<- DOC >> $logFile
 	["Query Result"]
 	{
