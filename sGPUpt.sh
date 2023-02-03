@@ -17,10 +17,6 @@ GREY=$(tput setaf 7)
 BLACK=$(tput setaf 0)
 DEFAULT=$(tput sgr0)
 
-WHITEBG=$(tput smso)
-RESETBG=$(tput sgr0)
-UNDERLINE=$(tput smul)
-
 # Network
 netName="default"
 netPath="/tmp/$netName.xml"
