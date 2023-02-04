@@ -526,7 +526,7 @@ function edk2_compile()
   mkdir -p $edkDir >> $logFile 2>&1
   cd $edkDir >> $logFile 2>&1
 
-  git clone --branch $edkBranch edkGit $edkDir >> $logFile 2>&1
+  git clone --branch $edkBranch $edkGit $edkDir >> $logFile 2>&1
   git submodule update --init >> $logFile 2>&1
 
   # Spoofing edits
