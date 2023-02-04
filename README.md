@@ -4,9 +4,9 @@ sGPUpt is an automated setup script for new and experienced VFIO users looking t
 Check below to ensure that the script supports your hardware and distro!
 
 # Functionality
-* Installs all packages necessary for desktop virtualization
 * Checks if your system has valid IOMMU groups
-* Compiles QEMU (with spice support) & EDK2 OVMF
+* Installs all packages necessary for desktop virtualization
+* Compiles spoofed QEMU (with spice support) & EDK2 OVMF
 * Creates VFIO hooks + the required hooks for single GPU passthrough
 * Creates a VM based on your system specs with additional features and optimizations
 
@@ -33,14 +33,14 @@ sudo ./sGPUpt.sh
 | Linux Mint (21.1) |   ✔️   |
 
 # Supported Hardware
-|   CPU + GPU     |  Status |
-| --------------- | ------- |
-| AMD + Nvidia    |    ✔️   |
-| AMD + AMD       |    ✔️   |
-| AMD + Intel     |    ❌   |
-| Intel + Nvidia  |    ✔️   |
-| Intel + AMD     |    ✔️   |
-| Intel + Intel   |    ❌   |
+|   CPU + GPU     |  Status | Additional Information                                           |
+| --------------- | ------- | ---------------------------------------------------------------- |
+| AMD + Nvidia    |    ✔️   | -                                                                |
+| AMD + AMD       |    ✔️   | may require [vendor-reset](https://github.com/gnif/vendor-reset) |
+| AMD + Intel     |    ❌   | -                                                                |
+| Intel + Nvidia  |    ✔️   | -                                                                |
+| Intel + AMD     |    ✔️   | may require [vendor-reset](https://github.com/gnif/vendor-reset) |
+| Intel + Intel   |    ❌   | -                                                                |
 
 # Want to contribute but can't code?
 If you're willing to provide system information related to your cpu, motherboard, iommu groups and other script issues you may be experiencing then please open an issue or chat me on reddit.
