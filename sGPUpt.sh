@@ -106,6 +106,10 @@ function main()
 
   header
 
+  if [[ ! -e /etc/sGPUpt/ ]]; then
+    mkdir -p /etc/sGPUpt/
+  fi
+
   # Start logging
   logFile="/etc/sGPUpt/sGPUpt.log"
   > $logFile
