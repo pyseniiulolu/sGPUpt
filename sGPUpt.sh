@@ -118,7 +118,7 @@ function main()
     read -p "$(logger info "Enter VM name: ")" REPLY
     case $REPLY in
       "")    continue ;;
-      *" "*) logger warn "Your machine's name cannot contain the character: ' '" ;; 
+      *" "*) logger warn "Your machine's name cannot contain the character: ' '" ;;
       *"/"*) logger warn "Your machine's name cannot contain the character: '/'" ;;
       *)     VMName=$REPLY
     esac
@@ -164,7 +164,7 @@ function query_system()
       ((u++, p++, subInt++))
     done
   done
-  
+
   # CPU topology
   vThread=$(lscpu | grep "Thread(s)" | awk '{print $4}')
   vCPU=$(($(nproc) - $subInt))
@@ -621,7 +621,7 @@ function create_vm()
   # Disk img doesn't exist then create it
   if [[ ! -e $DiskPath/$VMName.qcow2 ]]; then
     read -p "$(logger info "Do you want to create a drive named ${VMName}? [y/N]: ")" CHOICE
-  else 
+  else
     read -p "$(logger info "The drive ${VMName} already exists. Overwrite it? [y/N]: ")" CHOICE
   fi
 
@@ -683,7 +683,7 @@ function create_vm()
   insert_cpu_pinning
   insert_gpu
   insert_usb
-  
+
   # Create VM hooks
   vm_hooks
 
@@ -694,7 +694,7 @@ function create_vm()
 function handle_disk()
 {
   read -p "$(logger info "Size of disk (GB)[default 128]: ")" DiskSize
-  
+
   # If reply is blank/invalid then default to 128G
   if [[ ! $DiskSize =~ ^[0-9]+$ ]] || (( $DiskSize < 1 )); then
     DiskSize="128"
@@ -759,13 +759,13 @@ function vm_hooks()
 
   start_sh
   stop_sh
- 
-  if [[ ! -e $pHookVM/prepare/begin/start.sh ]] || [[ ! -e $pHookVM/release/end/stop.sh ]]; then
+
+  if [[ ! -e $pHookVM/prepare/begin/start.sh || ! -e $pHookVM/release/end/stop.sh ]]; then
     logger error "Failed to create hooks report this!"
   fi
-  
+
   logger info "Successfully created passthrough hooks!"
- 
+
   # Set execute permissions for all the files in this path
   chmod +x -R $pHookVM >> $logFile 2>&1
 }
@@ -862,22 +862,25 @@ function start_sh()
 
   fHookStart="/etc/libvirt/hooks/qemu.d/$VMName/prepare/begin/start.sh"
   > $fHookStart
-	cat <<- DOC >> $fHookStart
+	cat <<- 'DOC' >> $fHookStart
 		#!/bin/bash
 		set -x
-		
+
 		systemctl stop display-manager
-		if [[ -n \$(pgrep -x "gdm-x-session") ]]; then
+		if [[ -n $(pgrep -x "gdm-x-session") ]]; then
 		  killall gdm-x-session
-		elif [[ -n \$(pgrep -x "gdm-wayland-session") ]]; then
+		elif [[ -n $(pgrep -x "gdm-wayland-session") ]]; then
 		  killall gdm-wayland-session
 		fi
-		
+
 	DOC
 		if [[ $GPUType == "NVIDIA" ]]; then
-		  echo -e "modprobe -r nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookStart
-		elif [[ $GPUType == "AMD" ]]; then
-		  echo -e "modprobe -r amdgpu" >> $fHookStart
+			cat <<- 'DOC' >> $fHookStart
+				if [[ -n $(pgrep -x "nvidia") ]]; then
+				  pkill -f nvidia
+				fi
+
+			DOC
 		fi
 
 		for gpu in ${aConvertedGPU[@]}; do
@@ -888,9 +891,7 @@ function start_sh()
 		  echo -e "virsh nodedev-detach pci_0000_$usb"
 		done >> $fHookStart
 	cat <<- DOC >> $fHookStart
-		
-		modprobe vfio-pci
-		
+
 		systemctl set-property --runtime -- user.slice AllowedCPUs=$ReservedCPUs
 		systemctl set-property --runtime -- system.slice AllowedCPUs=$ReservedCPUs
 		systemctl set-property --runtime -- init.scope AllowedCPUs=$ReservedCPUs
@@ -907,10 +908,10 @@ function stop_sh()
 
   fHookEnd="/etc/libvirt/hooks/qemu.d/$VMName/release/end/stop.sh"
   > $fHookEnd
-	cat <<- DOC >> $fHookEnd
+	cat <<- 'DOC' >> $fHookEnd
 		#!/bin/bash
 		set -x
-		
+
 	DOC
 		for gpu in ${aConvertedGPU[@]}; do
 		  echo -e "virsh nodedev-reattach pci_0000_$gpu"
@@ -919,20 +920,10 @@ function stop_sh()
 		for usb in ${aConvertedUSB[@]}; do
 		  echo -e "virsh nodedev-reattach pci_0000_$usb"
 		done >> $fHookEnd
-		
 	cat <<- DOC >> $fHookEnd
-		
-		modprobe -r vfio-pci
-	DOC
-		if [[ $GPUType == "NVIDIA" ]]; then
-		  echo -e "modprobe nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookEnd
-		elif [[ $GPUType == "AMD" ]]; then
-		  echo -e "modprobe amdgpu" >> $fHookEnd
-		fi
-	cat <<- DOC >> $fHookEnd
-		
+
 		systemctl start display-manager
-	
+
 		systemctl set-property --runtime -- user.slice AllowedCPUs=$AllCPUs
 		systemctl set-property --runtime -- system.slice AllowedCPUs=$AllCPUs
 		systemctl set-property --runtime -- init.scope AllowedCPUs=$AllCPUs
