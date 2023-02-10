@@ -118,7 +118,7 @@ function main()
     read -p "$(logger info "Enter VM name: ")" REPLY
     case $REPLY in
       "")    continue ;;
-      *" "*) logger warn "Your machine's name cannot contain the character: ' '" ;; 
+      *" "*) logger warn "Your machine's name cannot contain the character: ' '" ;;
       *"/"*) logger warn "Your machine's name cannot contain the character: '/'" ;;
       *)     VMName=$REPLY
     esac
@@ -164,7 +164,7 @@ function query_system()
       ((u++, p++, subInt++))
     done
   done
-  
+
   # CPU topology
   vThread=$(lscpu | grep "Thread(s)" | awk '{print $4}')
   vCPU=$(($(nproc) - $subInt))
@@ -421,18 +421,16 @@ function security_checks()
   ############################################################################################
 
   if [[ $NAME =~ ("Ubuntu"|"Pop!_OS"|"Linux Mint") ]] && [[ ! -e /etc/apparmor.d/disable/usr.sbin.libvirtd ]]; then
-    local armor="/etc/apparmor.d/usr/sbin.libvirtd"
-    ln -s "$armor" /etc/apparmor.d/disable/ >> $logFile 2>&1
-    apparmor_parser -R "$armor" >> $logFile 2>&1
+    ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/ >> $logFile 2>&1
+    apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd >> $logFile 2>&1
 
     firstInstall="true" # Fix for debain-based distros
     logger info "Disabling AppArmor permanently for this distro"
   elif [[ $NAME =~ ("Fedora"|"AlmaLinux"|"Nobara Linux") ]]; then
-    local se_config="/etc/selinux/config"
-    source "$se_config"
+    source /etc/selinux/config
     if [[ $SELINUX != "disabled" ]]; then
       setenforce 0 >> $logFile 2>&1
-      sed -i "s/SELINUX=.*/SELINUX=disabled/" "$se_config" >> $logFile 2>&1
+      sed -i "s/SELINUX=.*/SELINUX=disabled/" /etc/selinux/config >> $logFile 2>&1
 
       logger info "Disabling SELinux permanently for this distro"
     fi
@@ -496,20 +494,34 @@ function qemu_compile()
   git clone --branch $qemuBranch $qemuGit $qemuDir >> $logFile 2>&1
   cd $qemuDir >> $logFile 2>&1
 
+  qemu_motherboard_bios_vendor="AMI"
+  qemu_bios_string1="ALASKA"
+  qemu_bios_string2="ASPC    " # Must be 8 chars
+  qemu_disk_vendor="Western Digital Technologies, Inc."
+  qemu_disk_name="WDC WD10JPVX-22JC3T0"
+  qemu_cd_vendor="ASUS"
+  qemu_cd_name="ASUS DRW 24F1ST"
+  qemu_tablet_vendor="Wacom"
+  qemu_tablet_name="Wacom Tablet"
+  cpu_brand=$(grep -m 1 'vendor_id' /proc/cpuinfo | cut -c13-)
+  cpu_speed=$(dmidecode | grep "Current Speed:" | cut -d" " -f3)
+
   # Spoofing edits ~ We should probably add a bit more here...
-  sed -i 's/"BOCHS "/"ALASKA"/'                                                             $qemuDir/include/hw/acpi/aml-build.h
-  sed -i 's/"BXPC    "/"ASPC    "/'                                                         $qemuDir/include/hw/acpi/aml-build.h
-  sed -i 's/"QEMU HARDDISK"/"WDC WD10JPVX-22JC3T0"/'                                        $qemuDir/hw/scsi/scsi-disk.c
-  sed -i 's/"QEMU HARDDISK"/"WDC WD10JPVX-22JC3T0"/'                                        $qemuDir/hw/ide/core.c
-  sed -i 's/"QEMU DVD-ROM"/"ASUS DRW 24F1ST"/'                                              $qemuDir/hw/ide/core.c
-  sed -i 's/"QEMU"/"ASUS"/'                                                                 $qemuDir/hw/ide/atapi.c
-  sed -i 's/"QEMU DVD-ROM"/"ASUS DRW 24F1ST"/'                                              $qemuDir/hw/ide/atapi.c
-  sed -i 's/"QEMU PenPartner Tablet"/"Wacom Tablet"/'                                       $qemuDir/hw/usb/dev-wacom.c
-  sed -i 's/"QEMU PenPartner Tablet"/"Wacom Tablet"/'                                       $qemuDir/hw/scsi/scsi-disk.c
-  sed -i 's/"#define DEFAULT_CPU_SPEED 2000"/"#define DEFAULT_CPU_SPEED 3400"/'             $qemuDir/hw/scsi/scsi-disk.c
-  sed -i 's/"KVMKVMKVM\0\0\0"/"$CPUBrand"/'                                                 $qemuDir/include/standard-headers/asm-x86/kvm_para.h
-  sed -i 's/"KVMKVMKVM\0\0\0"/"$CPUBrand"/'                                                 $qemuDir/target/i386/kvm/kvm.c
-  sed -i 's/"bochs"/"AMI"/'                                                                 $qemuDir/block/bochs.c
+  sed -i "s/\"BOCHS \"/\"$qemu_bios_string1\"/"                                             $qemu_dir/include/hw/acpi/aml-build.h
+  sed -i "s/\"BXPC    \"/\"$qemu_bios_string2\"/"                                           $qemu_dir/include/hw/acpi/aml-build.h
+  sed -i "s/\"QEMU\"/\"$qemu_disk_vendor\"/"                                                $qemu_dir/hw/scsi/scsi-disk.c
+  sed -i "s/\"QEMU HARDDISK\"/\"$qemu_disk_name\"/"                                         $qemu_dir/hw/scsi/scsi-disk.c
+  sed -i "s/\"QEMU HARDDISK\"/\"$qemu_disk_name\"/"                                         $qemu_dir/hw/ide/core.c
+  sed -i "s/\"QEMU DVD-ROM\"/\"$qemu_cd_name\"/"                                            $qemu_dir/hw/ide/core.c
+  sed -i "s/\"QEMU\"/\"$qemu_cd_vendor\"/"                                                  $qemu_dir/hw/ide/atapi.c
+  sed -i "s/\"QEMU DVD-ROM\"/\"$qemu_cd_name\"/"                                            $qemu_dir/hw/ide/atapi.c
+  sed -i "s/\"QEMU\"/\"$qemu_tablet_vendor\"/"                                              $qemu_dir/hw/usb/dev-wacom.c
+  sed -i "s/\"Wacom PenPartner\"/\"$qemu_tablet_name\"/"                                    $qemu_dir/hw/usb/dev-wacom.c
+  sed -i "s/\"QEMU PenPartner Tablet\"/\"$qemu_tablet_name\"/"                              $qemu_dir/hw/usb/dev-wacom.c
+  sed -i "s/#define DEFAULT_CPU_SPEED 2000/#define DEFAULT_CPU_SPEED $cpu_speed/"           $qemu_dir/hw/smbios/smbios.c
+  sed -i "s/KVMKVMKVM\\\\0\\\\0\\\\0/$cpu_brand/"                                           $qemu_dir/include/standard-headers/asm-x86/kvm_para.h
+  sed -i "s/KVMKVMKVM\\\\0\\\\0\\\\0/$cpu_brand/"                                           $qemu_dir/target/i386/kvm/kvm.c
+  sed -i "s/\"bochs\"/\"$qemu_motherboard_bios_vendor\"/"                                   $qemu_dir/block/bochs.c
 
   ./configure --enable-spice --disable-werror >> $logFile 2>&1
   make -j$(nproc) >> $logFile 2>&1
@@ -530,8 +542,9 @@ function edk2_compile()
   git submodule update --init >> $logFile 2>&1
 
   # Spoofing edits
-  sed -i 's/"EDK II"/"American Megatrends"/'                                                $edkDir/MdeModulePkg/MdeModulePkg.dec
-  sed -i 's/"EDK II"/"American Megatrends"/'                                                $edkDir/ShellPkg/ShellPkg.dec
+  bios_vendor="American Megatrends"
+  sed -i "s/\"EDK II\"/\"$bios_vendor\"/" $edk2_dir/MdeModulePkg/MdeModulePkg.dec
+  sed -i "s/\"EDK II\"/\"$bios_vendor\"/" $edk2_dir/ShellPkg/ShellPkg.dec
 
   make -j$(nproc) -C BaseTools >> $logFile 2>&1
   . edksetup.sh >> $logFile 2>&1
@@ -608,15 +621,14 @@ function create_vm()
   # Disk img doesn't exist then create it
   if [[ ! -e $DiskPath/$VMName.qcow2 ]]; then
     read -p "$(logger info "Do you want to create a drive named ${VMName}? [y/N]: ")" CHOICE
-  else 
+  else
     read -p "$(logger info "The drive ${VMName} already exists. Overwrite it? [y/N]: ")" CHOICE
   fi
 
   case $CHOICE in
     y|Y) handle_disk
-      disk_pretty="${DiskSize}G"
-      ;;
-    ""|N) disk_pretty=" "
+      disk_pretty="${DiskSize}G" ;;
+    ""|N) disk_pretty=" " ;;
   esac
 
   case $SysType in
@@ -660,7 +672,7 @@ function create_vm()
   >> $logFile 2>&1
 
   if [[ ! -e /etc/libvirt/qemu/$VMName.xml ]]; then
-    logger error "An error occured while creating the VM, report this!"
+    logger error "An error occured while creating the VM, please create an issue on github!"
   fi
 
   logger info "Adding additional features/optimizations to $VMName..."
@@ -671,7 +683,7 @@ function create_vm()
   insert_cpu_pinning
   insert_gpu
   insert_usb
-  
+
   # Create VM hooks
   vm_hooks
 
@@ -682,7 +694,7 @@ function create_vm()
 function handle_disk()
 {
   read -p "$(logger info "Size of disk (GB)[default 128]: ")" DiskSize
-  
+
   # If reply is blank/invalid then default to 128G
   if [[ ! $DiskSize =~ ^[0-9]+$ ]] || (( $DiskSize < 1 )); then
     DiskSize="128"
@@ -747,13 +759,13 @@ function vm_hooks()
 
   start_sh
   stop_sh
- 
-  if [[ -e $pHookVM/prepare/begin/start.sh ]] && [[ -e $pHookVM/release/end/stop.sh ]]; then
-    logger info "Successfully created passthrough hooks!"
-  else
+
+  if [[ ! -e $pHookVM/prepare/begin/start.sh || ! -e $pHookVM/release/end/stop.sh ]]; then
     logger error "Failed to create hooks report this!"
   fi
- 
+
+  logger info "Successfully created passthrough hooks!"
+
   # Set execute permissions for all the files in this path
   chmod +x -R $pHookVM >> $logFile 2>&1
 }
@@ -837,7 +849,7 @@ function vfio_hooks()
 		    fi
 		  done <<< "$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print;)"
 		fi
-DOC
+	DOC
 }
 
 function start_sh()
@@ -850,22 +862,25 @@ function start_sh()
 
   fHookStart="/etc/libvirt/hooks/qemu.d/$VMName/prepare/begin/start.sh"
   > $fHookStart
-	cat <<- DOC >> $fHookStart
+	cat <<- 'DOC' >> $fHookStart
 		#!/bin/bash
 		set -x
-		
+
 		systemctl stop display-manager
-		if [[ -n \$(pgrep -x "gdm-x-session") ]]; then
+		if [[ -n $(pgrep -x "gdm-x-session") ]]; then
 		  killall gdm-x-session
-		elif [[ -n \$(pgrep -x "gdm-wayland-session") ]]; then
+		elif [[ -n $(pgrep -x "gdm-wayland-session") ]]; then
 		  killall gdm-wayland-session
 		fi
-		
-DOC
+
+	DOC
 		if [[ $GPUType == "NVIDIA" ]]; then
-		  echo -e "modprobe -r nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookStart
-		elif [[ $GPUType == "AMD" ]]; then
-		  echo -e "modprobe -r amdgpu" >> $fHookStart
+			cat <<- 'DOC' >> $fHookStart
+				if [[ -n $(pgrep -x "nvidia") ]]; then
+				  pkill -f nvidia
+				fi
+
+			DOC
 		fi
 
 		for gpu in ${aConvertedGPU[@]}; do
@@ -876,13 +891,11 @@ DOC
 		  echo -e "virsh nodedev-detach pci_0000_$usb"
 		done >> $fHookStart
 	cat <<- DOC >> $fHookStart
-		
-		modprobe vfio-pci
-		
+
 		systemctl set-property --runtime -- user.slice AllowedCPUs=$ReservedCPUs
 		systemctl set-property --runtime -- system.slice AllowedCPUs=$ReservedCPUs
 		systemctl set-property --runtime -- init.scope AllowedCPUs=$ReservedCPUs
-DOC
+	DOC
 }
 
 function stop_sh()
@@ -895,11 +908,11 @@ function stop_sh()
 
   fHookEnd="/etc/libvirt/hooks/qemu.d/$VMName/release/end/stop.sh"
   > $fHookEnd
-	cat <<- DOC >> $fHookEnd
+	cat <<- 'DOC' >> $fHookEnd
 		#!/bin/bash
 		set -x
-		
-DOC
+
+	DOC
 		for gpu in ${aConvertedGPU[@]}; do
 		  echo -e "virsh nodedev-reattach pci_0000_$gpu"
 		done >> $fHookEnd
@@ -907,25 +920,14 @@ DOC
 		for usb in ${aConvertedUSB[@]}; do
 		  echo -e "virsh nodedev-reattach pci_0000_$usb"
 		done >> $fHookEnd
-		
 	cat <<- DOC >> $fHookEnd
-		
-		modprobe -r vfio-pci
-DOC
-		
-		if [[ $GPUType == "NVIDIA" ]]; then
-		  echo -e "modprobe nvidia nvidia_drm nvidia_uvm nvidia_modeset" >> $fHookEnd
-		elif [[ $GPUType == "AMD" ]]; then
-		  echo -e "modprobe amdgpu" >> $fHookEnd
-		fi
-	cat <<- DOC >> $fHookEnd
-		
+
 		systemctl start display-manager
-	
+
 		systemctl set-property --runtime -- user.slice AllowedCPUs=$AllCPUs
 		systemctl set-property --runtime -- system.slice AllowedCPUs=$AllCPUs
 		systemctl set-property --runtime -- init.scope AllowedCPUs=$AllCPUs
-DOC
+	DOC
 }
 
 function handle_virt_net()
@@ -947,7 +949,7 @@ function handle_virt_net()
 		    </dhcp>
 		  </ip>
 		</network>
-DOC
+	DOC
 
     virsh net-define $netPath >> $logFile 2>&1
     rm $netPath >> $logFile 2>&1
@@ -979,7 +981,7 @@ function print_vm_data()
 	  "QEMU Version":"$vQEMU"
 	  "Additional Devices": [ ${aGPU[@]} ${aUSB[@]} ]
 	}
-DOC
+	DOC
 
 	cat <<- DOC >> $logFile 2>&1
 	["VM Configuration"]
@@ -992,7 +994,7 @@ DOC
 	  "QEMU Version":"$vQEMU"
 	  "Additional Devices": [ ${aGPU[@]} ${aUSB[@]} ]
 	}
-DOC
+	DOC
 }
 
 function print_query()
@@ -1035,6 +1037,6 @@ function print_query()
 	        "Converted USB IDs": [ ${aConvertedUSB[@]} ]
 	    }]
 	}
-DOC
+	DOC
 }
 main
