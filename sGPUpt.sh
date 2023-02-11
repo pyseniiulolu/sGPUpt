@@ -567,13 +567,28 @@ function setup_libvirt()
     logger info "Added user '$SUDO_USER' to groups 'libvirt,kvm,input'"
   fi
 
-  # Allow users in group libvirt to use virt-manager /etc/libvirt/libvirtd.conf
-  if [[ -z $(grep 'unix_sock_group = "libvirt"' /etc/libvirt/libvirtd.conf) ]]; then
-    sed -i 's/#unix_sock_group = "libvirt"/unix_sock_group = "libvirt"/' /etc/libvirt/libvirtd.conf
+  if [[ -z $(grep "^unix_sock_group = \"libvirt\"" /etc/libvirt/libvirtd.conf) ]]; then
+    [[ $(grep '#unix_sock_group' /etc/libvirt/libvirtd.conf) ]] && sedParam="#unix_sock_group = \".*\"" || sedParam="unix_sock_group = \".*\""
+
+    sed -i "s/$sedParam/unix_sock_group = \"libvirt\"/" /etc/libvirt/libvirtd.conf
   fi
 
-  if [[ -z $(grep 'unix_sock_rw_perms = "0770"' /etc/libvirt/libvirtd.conf) ]]; then
-    sed -i 's/#unix_sock_rw_perms = "0770"/unix_sock_rw_perms = "0770"/' /etc/libvirt/libvirtd.conf
+  if [[ -z $(grep "^unix_sock_rw_perms = \"0770\"" /etc/libvirt/libvirtd.conf) ]]; then
+    [[ $(grep '#unix_sock_rw_perms' /etc/libvirt/libvirtd.conf) ]] && sedParam="#unix_sock_rw_perms = \".*\"" || sedParam="unix_sock_rw_perms = \".*\""
+
+    sed -i "s/$sedParam/unix_sock_rw_perms = \"0770\"/" /etc/libvirt/libvirtd.conf
+  fi
+
+  if [[ -z $(grep "^user = \"$SUDO_USER\"" /etc/libvirt/qemu.conf) ]]; then
+    [[ $(grep '#user' /etc/libvirt/qemu.conf) ]] && sedParam="#user = \".*\"" || sedParam="user = \".*\""
+
+    sed -i "s/$sedParam/user = \"$SUDO_USER\"/" /etc/libvirt/qemu.conf
+  fi
+
+  if [[ -z $(grep "^group = \"$SUDO_USER\"" /etc/libvirt/qemu.conf) ]]; then
+    [[ $(grep '#group' /etc/libvirt/qemu.conf) ]] && sedParam="#group = \".*\"" || sedParam="group = \".*\""
+
+    sed -i "s/$sedParam/group = \"$SUDO_USER\"/" /etc/libvirt/qemu.conf
   fi
 
   # If hooks aren't installed
@@ -584,7 +599,6 @@ function setup_libvirt()
   # Kill virt-manager because it shouldn't opened during the install
   if [[ -n $(pgrep -x "virt-manager") ]]; then
     killall virt-manager
-    #echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${RED}Killed virt-manager${DEFAULT}"
   fi
 
   # Restart or enable libvirtd
