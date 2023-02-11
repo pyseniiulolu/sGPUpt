@@ -28,14 +28,14 @@ ISOPath="/etc/sGPUpt/iso"
 #ISOPath=/home/$SUDO_USER/Documents/iso
 
 # Compile
-qemuBranch="v7.2.0"
-qemuDir="/etc/sGPUpt/qemu-emulator"
-edkBranch="edk2-stable202211"
-edkDir="/etc/sGPUpt/edk-compile"
+qemu_branch="v7.2.0"
+qemu_dir="/etc/sGPUpt/qemu-emulator"
+edk_branch="edk2-stable202211"
+edk_dir="/etc/sGPUpt/edk-compile"
 
 # Urls
-qemuGit="https://github.com/qemu/qemu.git"
-edkGit="https://github.com/tianocore/edk2.git"
+qemu_git="https://github.com/qemu/qemu.git"
+edk_git="https://github.com/tianocore/edk2.git"
 virtIO_url="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
 
 function header(){
@@ -480,13 +480,13 @@ function compile_checks()
 
 function qemu_compile()
 {
-  if [[ -e $qemuDir ]]; then
-    rm -rf $qemuDir >> $logFile 2>&1
+  if [[ -e $qemu_dir ]]; then
+    rm -rf $qemu_dir >> $logFile 2>&1
   fi
 
-  mkdir -p $qemuDir >> $logFile 2>&1
-  git clone --branch $qemuBranch $qemuGit $qemuDir >> $logFile 2>&1
-  cd $qemuDir >> $logFile 2>&1
+  mkdir -p $qemu_dir >> $logFile 2>&1
+  git clone --branch $qemu_branch $qemu_git $qemu_dir >> $logFile 2>&1
+  cd $qemu_dir >> $logFile 2>&1
 
   qemu_motherboard_bios_vendor="AMI"
   qemu_bios_string1="ALASKA"
@@ -520,19 +520,19 @@ function qemu_compile()
   ./configure --enable-spice --disable-werror >> $logFile 2>&1
   make -j$(nproc) >> $logFile 2>&1
 
-  chown -R $SUDO_USER:$SUDO_USER $qemuDir >> $logFile 2>&1
+  chown -R $SUDO_USER:$SUDO_USER $qemu_dir >> $logFile 2>&1
 }
 
 function edk2_compile()
 {
-  if [[ -e $edkDir ]]; then
-    rm -rf $edkDir >> $logFile 2>&1
+  if [[ -e $edk_dir ]]; then
+    rm -rf $edk_dir >> $logFile 2>&1
   fi
 
-  mkdir -p $edkDir >> $logFile 2>&1
-  cd $edkDir >> $logFile 2>&1
+  mkdir -p $edk_dir >> $logFile 2>&1
+  cd $edk_dir >> $logFile 2>&1
 
-  git clone --branch $edkBranch $edkGit $edkDir >> $logFile 2>&1
+  git clone --branch $edk_branch $edk_git $edk_dir >> $logFile 2>&1
   git submodule update --init >> $logFile 2>&1
 
   # Spoofing edits
@@ -544,7 +544,7 @@ function edk2_compile()
   . edksetup.sh >> $logFile 2>&1
   OvmfPkg/build.sh -p OvmfPkg/OvmfPkgX64.dsc -a X64 -b RELEASE -t GCC5 >> $logFile 2>&1
 
-  chown -R $SUDO_USER:$SUDO_USER $edkDir >> $logFile 2>&1
+  chown -R $SUDO_USER:$SUDO_USER $edk_dir >> $logFile 2>&1
 }
 
 function setup_libvirt()
