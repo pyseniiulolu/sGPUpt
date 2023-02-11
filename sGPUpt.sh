@@ -393,12 +393,6 @@ function install_packages()
     logger error "Cannot find distro!"
   fi
 
-  # Fedora and Alma don't have libvirt-qemu for some reason?
-  case "$NAME" in
-    *"Fedora"*|"AlmaLinux"|"Nobara Linux") groupName=$SUDO_USER ;;
-    *) groupName="libvirt-qemu" ;;
-  esac
-
   # If dir doesn't exist then create it
   if [[ ! -e $ISOPath ]]; then
     mkdir -p $ISOPath >> $logFile 2>&1
@@ -715,7 +709,7 @@ function handle_disk()
   fi
 
   qemu-img create -f qcow2 $DiskPath/$VMName.qcow2 ${DiskSize}G >> $logFile 2>&1
-  chown $SUDO_USER:$groupName $DiskPath/$VMName.qcow2 >> $logFile 2>&1
+  chown $SUDO_USER:$SUDO_USER $DiskPath/$VMName.qcow2 >> $logFile 2>&1
   includeDrive="1"
 }
 
