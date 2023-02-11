@@ -28,14 +28,14 @@ ISOPath="/etc/sGPUpt/iso"
 #ISOPath=/home/$SUDO_USER/Documents/iso
 
 # Compile
-qemuBranch="v7.2.0"
-qemuDir="/etc/sGPUpt/qemu-emulator"
-edkBranch="edk2-stable202211"
-edkDir="/etc/sGPUpt/edk-compile"
+qemu_branch="v7.2.0"
+qemu_dir="/etc/sGPUpt/qemu-emulator"
+edk2_branch="edk2-stable202211"
+edk2_dir="/etc/sGPUpt/edk-compile"
 
 # Urls
-qemuGit="https://github.com/qemu/qemu.git"
-edkGit="https://github.com/tianocore/edk2.git"
+qemu_git="https://github.com/qemu/qemu.git"
+edk2_git="https://github.com/tianocore/edk2.git"
 virtIO_url="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
 
 function header(){
@@ -393,12 +393,6 @@ function install_packages()
     logger error "Cannot find distro!"
   fi
 
-  # Fedora and Alma don't have libvirt-qemu for some reason?
-  case "$NAME" in
-    *"Fedora"*|"AlmaLinux"|"Nobara Linux") groupName=$SUDO_USER ;;
-    *) groupName="libvirt-qemu" ;;
-  esac
-
   # If dir doesn't exist then create it
   if [[ ! -e $ISOPath ]]; then
     mkdir -p $ISOPath >> $logFile 2>&1
@@ -470,7 +464,7 @@ function compile_checks()
     ln -s $qemuDir/build/qemu-system-x86_64 /etc/sGPUpt/qemu-system-x86_64 >> $logFile 2>&1
   fi
 
-  if [[ ! -e $qemuDir/build/qemu-system-x86_64 && ! -e $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
+  if [[ ! -e $qemu_dir/build/qemu-system-x86_64 && ! -e $edk2_dir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
     logger error "Failed to compile? Check the log file."
   fi
 
@@ -486,13 +480,13 @@ function compile_checks()
 
 function qemu_compile()
 {
-  if [[ -e $qemuDir ]]; then
-    rm -rf $qemuDir >> $logFile 2>&1
+  if [[ -e $qemu_dir ]]; then
+    rm -rf $qemu_dir >> $logFile 2>&1
   fi
 
-  mkdir -p $qemuDir >> $logFile 2>&1
-  git clone --branch $qemuBranch $qemuGit $qemuDir >> $logFile 2>&1
-  cd $qemuDir >> $logFile 2>&1
+  mkdir -p $qemu_dir >> $logFile 2>&1
+  git clone --branch $qemu_branch $qemu_git $qemu_dir >> $logFile 2>&1
+  cd $qemu_dir >> $logFile 2>&1
 
   qemu_motherboard_bios_vendor="AMI"
   qemu_bios_string1="ALASKA"
@@ -504,7 +498,7 @@ function qemu_compile()
   qemu_tablet_vendor="Wacom"
   qemu_tablet_name="Wacom Tablet"
   cpu_brand=$(grep -m 1 'vendor_id' /proc/cpuinfo | cut -c13-)
-  cpu_speed=$(dmidecode | grep "Current Speed:" | cut -d" " -f3)
+  cpu_speed=$(dmidecode | grep -m 1 "Current Speed:" | cut -d" " -f3)
 
   # Spoofing edits ~ We should probably add a bit more here...
   sed -i "s/\"BOCHS \"/\"$qemu_bios_string1\"/"                                             $qemu_dir/include/hw/acpi/aml-build.h
@@ -526,19 +520,19 @@ function qemu_compile()
   ./configure --enable-spice --disable-werror >> $logFile 2>&1
   make -j$(nproc) >> $logFile 2>&1
 
-  chown -R $SUDO_USER:$SUDO_USER $qemuDir >> $logFile 2>&1
+  chown -R $SUDO_USER:$SUDO_USER $qemu_dir >> $logFile 2>&1
 }
 
 function edk2_compile()
 {
-  if [[ -e $edkDir ]]; then
-    rm -rf $edkDir >> $logFile 2>&1
+  if [[ -e $edk2_dir ]]; then
+    rm -rf $edk2_dir >> $logFile 2>&1
   fi
 
-  mkdir -p $edkDir >> $logFile 2>&1
-  cd $edkDir >> $logFile 2>&1
+  mkdir -p $edk2_dir >> $logFile 2>&1
+  cd $edk2_dir >> $logFile 2>&1
 
-  git clone --branch $edkBranch $edkGit $edkDir >> $logFile 2>&1
+  git clone --branch $edk2_branch $edk2_git $edk2_dir >> $logFile 2>&1
   git submodule update --init >> $logFile 2>&1
 
   # Spoofing edits
@@ -550,7 +544,7 @@ function edk2_compile()
   . edksetup.sh >> $logFile 2>&1
   OvmfPkg/build.sh -p OvmfPkg/OvmfPkgX64.dsc -a X64 -b RELEASE -t GCC5 >> $logFile 2>&1
 
-  chown -R $SUDO_USER:$SUDO_USER $edkDir >> $logFile 2>&1
+  chown -R $SUDO_USER:$SUDO_USER $edk2_dir >> $logFile 2>&1
 }
 
 function setup_libvirt()
@@ -567,13 +561,28 @@ function setup_libvirt()
     logger info "Added user '$SUDO_USER' to groups 'libvirt,kvm,input'"
   fi
 
-  # Allow users in group libvirt to use virt-manager /etc/libvirt/libvirtd.conf
-  if [[ -z $(grep 'unix_sock_group = "libvirt"' /etc/libvirt/libvirtd.conf) ]]; then
-    sed -i 's/#unix_sock_group = "libvirt"/unix_sock_group = "libvirt"/' /etc/libvirt/libvirtd.conf
+  if [[ -z $(grep "^unix_sock_group = \"libvirt\"" /etc/libvirt/libvirtd.conf) ]]; then
+    [[ $(grep '#unix_sock_group' /etc/libvirt/libvirtd.conf) ]] && sedParam="#unix_sock_group = \".*\"" || sedParam="unix_sock_group = \".*\""
+
+    sed -i "s/$sedParam/unix_sock_group = \"libvirt\"/" /etc/libvirt/libvirtd.conf
   fi
 
-  if [[ -z $(grep 'unix_sock_rw_perms = "0770"' /etc/libvirt/libvirtd.conf) ]]; then
-    sed -i 's/#unix_sock_rw_perms = "0770"/unix_sock_rw_perms = "0770"/' /etc/libvirt/libvirtd.conf
+  if [[ -z $(grep "^unix_sock_rw_perms = \"0770\"" /etc/libvirt/libvirtd.conf) ]]; then
+    [[ $(grep '#unix_sock_rw_perms' /etc/libvirt/libvirtd.conf) ]] && sedParam="#unix_sock_rw_perms = \".*\"" || sedParam="unix_sock_rw_perms = \".*\""
+
+    sed -i "s/$sedParam/unix_sock_rw_perms = \"0770\"/" /etc/libvirt/libvirtd.conf
+  fi
+
+  if [[ -z $(grep "^user = \"$SUDO_USER\"" /etc/libvirt/qemu.conf) ]]; then
+    [[ $(grep '#user' /etc/libvirt/qemu.conf) ]] && sedParam="#user = \".*\"" || sedParam="user = \".*\""
+
+    sed -i "s/$sedParam/user = \"$SUDO_USER\"/" /etc/libvirt/qemu.conf
+  fi
+
+  if [[ -z $(grep "^group = \"$SUDO_USER\"" /etc/libvirt/qemu.conf) ]]; then
+    [[ $(grep '#group' /etc/libvirt/qemu.conf) ]] && sedParam="#group = \".*\"" || sedParam="group = \".*\""
+
+    sed -i "s/$sedParam/group = \"$SUDO_USER\"/" /etc/libvirt/qemu.conf
   fi
 
   # If hooks aren't installed
@@ -584,7 +593,6 @@ function setup_libvirt()
   # Kill virt-manager because it shouldn't opened during the install
   if [[ -n $(pgrep -x "virt-manager") ]]; then
     killall virt-manager
-    #echo -e "~ [${PURPLE}sGPUpt${DEFAULT}] ${RED}Killed virt-manager${DEFAULT}"
   fi
 
   # Restart or enable libvirtd
@@ -701,7 +709,7 @@ function handle_disk()
   fi
 
   qemu-img create -f qcow2 $DiskPath/$VMName.qcow2 ${DiskSize}G >> $logFile 2>&1
-  chown $SUDO_USER:$groupName $DiskPath/$VMName.qcow2 >> $logFile 2>&1
+  chown $SUDO_USER:$SUDO_USER $DiskPath/$VMName.qcow2 >> $logFile 2>&1
   includeDrive="1"
 }
 
