@@ -30,12 +30,12 @@ ISOPath="/etc/sGPUpt/iso"
 # Compile
 qemu_branch="v7.2.0"
 qemu_dir="/etc/sGPUpt/qemu-emulator"
-edk_branch="edk2-stable202211"
-edk_dir="/etc/sGPUpt/edk-compile"
+edk2_branch="edk2-stable202211"
+edk2_dir="/etc/sGPUpt/edk-compile"
 
 # Urls
 qemu_git="https://github.com/qemu/qemu.git"
-edk_git="https://github.com/tianocore/edk2.git"
+edk2_git="https://github.com/tianocore/edk2.git"
 virtIO_url="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
 
 function header(){
@@ -464,7 +464,7 @@ function compile_checks()
     ln -s $qemuDir/build/qemu-system-x86_64 /etc/sGPUpt/qemu-system-x86_64 >> $logFile 2>&1
   fi
 
-  if [[ ! -e $qemuDir/build/qemu-system-x86_64 && ! -e $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
+  if [[ ! -e $qemu_dir/build/qemu-system-x86_64 && ! -e $edk2_dir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
     logger error "Failed to compile? Check the log file."
   fi
 
@@ -498,7 +498,7 @@ function qemu_compile()
   qemu_tablet_vendor="Wacom"
   qemu_tablet_name="Wacom Tablet"
   cpu_brand=$(grep -m 1 'vendor_id' /proc/cpuinfo | cut -c13-)
-  cpu_speed=$(dmidecode | grep "Current Speed:" | cut -d" " -f3)
+  cpu_speed=$(dmidecode | grep -m 1 "Current Speed:" | cut -d" " -f3)
 
   # Spoofing edits ~ We should probably add a bit more here...
   sed -i "s/\"BOCHS \"/\"$qemu_bios_string1\"/"                                             $qemu_dir/include/hw/acpi/aml-build.h
@@ -525,14 +525,14 @@ function qemu_compile()
 
 function edk2_compile()
 {
-  if [[ -e $edk_dir ]]; then
-    rm -rf $edk_dir >> $logFile 2>&1
+  if [[ -e $edk2_dir ]]; then
+    rm -rf $edk2_dir >> $logFile 2>&1
   fi
 
-  mkdir -p $edk_dir >> $logFile 2>&1
-  cd $edk_dir >> $logFile 2>&1
+  mkdir -p $edk2_dir >> $logFile 2>&1
+  cd $edk2_dir >> $logFile 2>&1
 
-  git clone --branch $edk_branch $edk_git $edk_dir >> $logFile 2>&1
+  git clone --branch $edk2_branch $edk2_git $edk2_dir >> $logFile 2>&1
   git submodule update --init >> $logFile 2>&1
 
   # Spoofing edits
@@ -544,7 +544,7 @@ function edk2_compile()
   . edksetup.sh >> $logFile 2>&1
   OvmfPkg/build.sh -p OvmfPkg/OvmfPkgX64.dsc -a X64 -b RELEASE -t GCC5 >> $logFile 2>&1
 
-  chown -R $SUDO_USER:$SUDO_USER $edk_dir >> $logFile 2>&1
+  chown -R $SUDO_USER:$SUDO_USER $edk2_dir >> $logFile 2>&1
 }
 
 function setup_libvirt()
