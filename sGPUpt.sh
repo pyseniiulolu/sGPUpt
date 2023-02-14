@@ -449,14 +449,14 @@ function compile_checks()
     qemu_compile
   fi
 
-  if [[ ! -e $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
+  if [[ ! -e $edk2_dir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
     logger info "Starting EDK2 compile... please wait."
     edk2_compile
   fi
 
   # symlink for OVMF
   if [[ ! -e /etc/sGPUpt/OVMF_CODE.fd ]]; then
-    ln -s $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd /etc/sGPUpt/OVMF_CODE.fd >> $logFile 2>&1
+    ln -s $edk2_dir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd /etc/sGPUpt/OVMF_CODE.fd >> $logFile 2>&1
   fi
 
   # symlink for QEMU
@@ -647,7 +647,7 @@ function create_vm()
   OVMF_CODE="/etc/sGPUpt/OVMF_CODE.fd"
   OVMF_VARS="/var/lib/libvirt/qemu/nvram/${VMName}_VARS.fd"
   Emulator="/etc/sGPUpt/qemu-system-x86_64"
-  cp $edkDir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_VARS.fd $OVMF_VARS
+  cp $edk2_dir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_VARS.fd $OVMF_VARS
 
   print_vm_data
 
