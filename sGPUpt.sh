@@ -443,7 +443,7 @@ function compile_checks()
   fi
 
   # Compile Spoofed QEMU & EDK2 OVMF
-  if [[ ! -e $qemuDir/build/qemu-system-x86_64 ]]; then
+  if [[ ! -e $qemu_dir/build/qemu-system-x86_64 ]]; then
     logger info "Starting QEMU compile... please wait."
     stat 0
     qemu_compile
@@ -461,7 +461,7 @@ function compile_checks()
 
   # symlink for QEMU
   if [[ ! -e /etc/sGPUpt/qemu-system-x86_64 ]]; then
-    ln -s $qemuDir/build/qemu-system-x86_64 /etc/sGPUpt/qemu-system-x86_64 >> $logFile 2>&1
+    ln -s $qemu_dir/build/qemu-system-x86_64 /etc/sGPUpt/qemu-system-x86_64 >> $logFile 2>&1
   fi
 
   if [[ ! -e $qemu_dir/build/qemu-system-x86_64 || ! -e $edk2_dir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
@@ -470,7 +470,7 @@ function compile_checks()
 
   if (( $(cat "$status_file") == 0 )); then
     logger info "Finished compiling, installing compiled output..."
-    cd $qemuDir >> $logFile 2>&1
+    cd $qemu_dir >> $logFile 2>&1
     make install >> $logFile 2>&1 # may cause an issue ~ host compains about "Host does not support virtualization"
     stat 1
   fi
