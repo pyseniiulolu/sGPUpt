@@ -464,7 +464,7 @@ function compile_checks()
     ln -s $qemuDir/build/qemu-system-x86_64 /etc/sGPUpt/qemu-system-x86_64 >> $logFile 2>&1
   fi
 
-  if [[ ! -e $qemu_dir/build/qemu-system-x86_64 && ! -e $edk2_dir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
+  if [[ ! -e $qemu_dir/build/qemu-system-x86_64 || ! -e $edk2_dir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
     logger error "Failed to compile? Check the log file."
   fi
 
