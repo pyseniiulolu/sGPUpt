@@ -1,11 +1,12 @@
 #!/bin/bash
 LANG=en_US.UTF-8
 
-version=0.1.0
-author=lexi-src
-tool=sGPUpt
+# sGPUpt
+version="1.0.0"
+author="lexi-src"
+tool="sGPUpt"
 
-#TODO: add keys and codes into associative array
+# Colors
 PURPLE=$(tput setaf 99)
 BLUE=$(tput setaf 12)
 CYAN=$(tput setaf 14)
@@ -18,14 +19,14 @@ BLACK=$(tput setaf 0)
 DEFAULT=$(tput sgr0)
 
 # Network
-netName="default"
-netPath="/tmp/$netName.xml"
+network_name="default"
+network_path="/tmp/$network_name.xml"
 
 # Storage
-DiskPath="/etc/sGPUpt/disks"
-ISOPath="/etc/sGPUpt/iso"
-#DiskPath=/home/$SUDO_USER/Documents/qemu-images
-#ISOPath=/home/$SUDO_USER/Documents/iso
+disk_path="/etc/sGPUpt/disks"
+iso_path="/etc/sGPUpt/iso"
+#disk_path=/home/$SUDO_USER/Documents/qemu-images
+#iso_path=/home/$SUDO_USER/Documents/iso
 
 # Compile
 qemu_branch="v7.2.0"
@@ -37,6 +38,11 @@ edk2_dir="/etc/sGPUpt/edk-compile"
 qemu_git="https://github.com/qemu/qemu.git"
 edk2_git="https://github.com/tianocore/edk2.git"
 virtIO_url="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
+
+# Logs
+[[ ! -e /etc/sGPUpt/ ]] && mkdir -p /etc/sGPUpt/
+log_to_file="/etc/sGPUpt/sGPUpt.log"
+> $log_to_file
 
 function header(){
   #TODO: parameterize offset width
@@ -72,57 +78,55 @@ function logger(){
   pref="[sGPUpt]"
   case "$1" in
     success)
-      flag=INFO
-      col=GREEN
+      flag="SUCCESS"
+      col=${GREEN}
       ;;
     info)
-      flag=INFO
-      col=YELLOW
+      flag="INFO"
+      col=${BLUE}
       ;;
     warn)
-      flag=WARN
-      col=YELLOW
+      flag="WARNING"
+      col=${YELLOW}
       ;;
     error)
-      flag=ERROR
-      col=RED
+      flag="ERROR"
+      col=${RED}
+      ;;
+    exit)
+      flag="EXIT"
+      col=${RED}
+      ;;
+    none)
+      flag=""
+      col=${DEFAULT}
       ;;
   esac
-  printf "%s${!col}[%s]${DEFAULT} %s\n" "$pref" $flag "$2"
-  [[ "$1" == "error" ]] && exit 1
+  printf "%s$col[%s]${DEFAULT} %s\n" "$pref" "$flag" "$2"
+  [[ "$1" == @("error"|"exit") ]] && exit 1
 }
 
 function main()
 {
-  if [[ $(whoami) != "root" ]]; then
-    logger error "This script requires root privileges!"
-  elif [[ -z $(grep -E -m 1 "svm|vmx" /proc/cpuinfo) ]]; then
-    logger error "This system doesn't support virtualization, please enable it then run this script again!"
-  elif [[ ! -e /sys/firmware/efi ]]; then
-    logger error "This system isn't installed in UEFI mode!"
-  elif [[ -z $(ls -A /sys/class/iommu/) ]]; then
-    logger error "This system doesn't support IOMMU, please enable it then run this script again!"
-  fi
+  [[ $(whoami) != "root" ]]                        && logger error "This script requires root privileges!"
+  [[ -z $(grep -E -m 1 "svm|vmx" /proc/cpuinfo) ]] && logger error "This system doesn't support virtualization, please enable it then run this script again!"
+  [[ ! -e /sys/firmware/efi ]]                     && logger error "This system isn't installed in UEFI mode!"
+  [[ -z $(ls -A /sys/class/iommu/) ]]              && logger error "This system doesn't support IOMMU, please enable it then run this script again!"
 
   header
 
-  if [[ ! -e /etc/sGPUpt/ ]]; then
-    mkdir -p /etc/sGPUpt/
-  fi
-
-  # Start logging
-  logFile="/etc/sGPUpt/sGPUpt.log"
-  > $logFile
-
-  until [[ -n $VMName ]]; do
+  until [[ -n $vm_name ]]; do
     read -p "$(logger info "Enter VM name: ")" REPLY
     case $REPLY in
       "")    continue ;;
       *" "*) logger warn "Your machine's name cannot contain the character: ' '" ;;
       *"/"*) logger warn "Your machine's name cannot contain the character: '/'" ;;
-      *)     VMName=$REPLY
+      *)     vm_name=$REPLY
     esac
   done
+
+  # Overwrite protection for existing VM configurations
+  [[ -e /etc/libvirt/qemu/${vm_name}.xml ]] && logger error "sGPUpt Will not overwrite an existing VM Config!"
 
   # Call Funcs
   query_system
@@ -133,74 +137,72 @@ function main()
   create_vm
 
   # NEEDED TO FIX DEBIAN-BASED DISTROS USING VIRT-MANAGER
-  if [[ $firstInstall == "true" ]]; then
+  if [[ $first_install == "true" ]]; then
     read -p "$(logger info "A reboot is required for this distro, reboot now? [Y/n]: ")" CHOICE
-    case "$CHOICE" in
-      y|Y) reboot ;;
-      "") reboot ;;
-    esac
+    [[ "$CHOICE" == @("y"|"Y"|"") ]] && reboot
   fi
 }
 
 function query_system()
 {
   # Base CPU Information
-  CPUBrand=$(grep -m 1 'vendor_id' /proc/cpuinfo | cut -c13-)
-  CPUName=$(grep -m 1 'model name' /proc/cpuinfo | cut -c14-)
+  cpu_brand_id=$(grep -m 1 'vendor_id' /proc/cpuinfo | cut -c13-)
+  cpu_name=$(grep -m 1 'model name' /proc/cpuinfo | cut -c14-)
 
-  case $CPUBrand in
-    "AuthenticAMD") SysType="AMD" ;;
-    "GenuineIntel") SysType="Intel" ;;
+  case $cpu_brand_id in
+    "AuthenticAMD") cpu_type="AMD" ;;
+    "GenuineIntel") cpu_type="Intel" ;;
     *) logger error "Failed to find CPU brand." ;;
   esac
 
   # Core + Thread Pairs
   for (( i=0, u=0; i<$(nproc) / 2; i++ )); do
-    PT=$(lscpu -p | tail -n +5 | grep ",,[0-9]*,[0-9]*,$i,[0-9]*" | cut -d"," -f1)
+    cpu_group=$(lscpu -p | tail -n +5 | grep ",,[0-9]*,[0-9]*,$i,[0-9]*" | cut -d"," -f1)
 
-    ((p=1, subInt=0))
-    for core in $PT; do
-      aCPU[$u]=$(echo $PT | cut -d" " -f$p)
-      ((u++, p++, subInt++))
+    ((p=1, subtract_int=0))
+    for core in $cpu_group; do
+      array_cpu[$u]=$(echo $cpu_group | cut -d" " -f$p)
+      ((u++, p++, subtract_int++))
     done
   done
 
   # CPU topology
-  vThread=$(lscpu | grep "Thread(s)" | awk '{print $4}')
-  vCPU=$(($(nproc) - $subInt))
-  vCore=$(($vCPU / $vThread))
+  vm_threads=$(lscpu | grep "Thread(s)" | awk '{print $4}')
+  vm_cpus=$(($(nproc) - $subtract_int))
+  vm_cores=$(($vm_cpus / vm_threads))
 
   # Used for isolation in start.sh & end.sh
-  ReservedCPUs="$(echo $PT | tr " " ",")"
-  AllCPUs="0-$(($(nproc)-1))"
+  reserved_cpu_group="$(echo $cpu_group | tr " " ",")"
+  all_cpu_groups="0-$(($(nproc)-1))"
 
   # Stop the script if we have more than one GPU in the system
-  local lines=$(lspci | grep -c VGA)
-  if [[ $lines -gt 1 ]]; then
-    logger error "There are too many GPUs in the system!"
-  fi
+  [[ $(lspci | grep -c "VGA") -gt 1 ]] && logger error "There are too many GPUs in the system!"
+
+  gpu_name=$(lspci | grep "VGA" | grep -E "NVIDIA|AMD/ATI|Arc" | rev | cut -d"[" -f1 | cut -d"]" -f2 | rev)
+  gpu_components=$(lspci | grep -E "NVIDIA|AMD/ATI|Arc" | grep -E -c "VGA|Audio|USB|Serial")
+  case $gpu_name in
+    *"GeForce"*|*NVIDIA*) gpu_brand="NVIDIA" ;;
+    *"Radeon"*)           gpu_brand="AMD" ;;
+    *"Arc"*)              logger error "Intel Arc is unsupported, please refer to ${url}#supported-hardware" ;;
+    *)                    logger error "Unknown GPU" ;;
+  esac
 
   # Get passthrough devices
   find_pcie_devices
 
+  echo ${array_gpu[*]}
+  echo ${array_usb[*]}
+
   # Get the hosts total memory to split for the VM
-  SysMem=$(free -g | grep -oP '\d+' | head -n 1)
-  if [[ $SysMem -gt 120 ]]; then
-    vMem="65536"
-  elif [[ $SysMem -gt 90 ]]; then
-    vMem="49152"
-  elif [[ $SysMem -gt 60 ]]; then
-    vMem="32768"
-  elif [[ $SysMem -gt 30 ]]; then
-    vMem="16384"
-  elif [[ $SysMem -gt 20 ]]; then
-    vMem="12288"
-  elif [[ $SysMem -gt 14 ]]; then
-    vMem="8192"
-  elif [[ $SysMem -gt 10 ]]; then
-    vMem="6144"
-  else
-    vMem="4096"
+  host_memory=$(free -g | grep -oP '\d+' | head -n 1)
+  if [[ $host_memory -gt 120 ]];  then vm_memory="65536"
+  elif [[ $host_memory -gt 90 ]]; then vm_memory="49152"
+  elif [[ $host_memory -gt 60 ]]; then vm_memory="32768"
+  elif [[ $host_memory -gt 30 ]]; then vm_memory="16384"
+  elif [[ $host_memory -gt 20 ]]; then vm_memory="12288"
+  elif [[ $host_memory -gt 14 ]]; then vm_memory="8192"
+  elif [[ $host_memory -gt 10 ]]; then vm_memory="6144"
+  else                                 vm_memory="4096"
   fi
 
   print_query
@@ -212,61 +214,67 @@ function query_system()
 ###############################################################################
 function find_pcie_devices()
 {
-  GPUName=$(lspci | grep VGA | grep -E "NVIDIA|AMD/ATI|Arc" | rev | cut -d"[" -f1 | cut -d"]" -f2 | rev)
-  case $GPUName in
-    *"GeForce"*) GPUType="NVIDIA" ;;
-    *"Radeon"*)  GPUType="AMD" ;;
-    *"Arc"*)     logger error "Intel Arc is unsupported, please refer to ${url}#supported-hardware" ;;
-  esac
+  IncrementGPU() {
+    array_gpu[$h]=$1
+    ((h++, gpu_in_group=1))
+    echo -e "GPU > Group $3 - $2" >> $log_to_file 2>&1
+  }
+  IncrementUSB() {
+    array_usb[$k]=$1
+    ((k++))
+    echo -e "USB > Group $3 - $2" >> $log_to_file 2>&1
+  }
+  IncrementMisc() {
+    ((misc_device++))
+    echo -e "Group $1 - $2" >> $log_to_file 2>&1
+  }
 
-  ((h=0, allocateGPUOnCycle=0))
   for g in $(find /sys/kernel/iommu_groups/* -maxdepth 0 -type d | sort -V); do
 
     # Check each device in the group to ensure that our target device is isolated properly
     for d in $g/devices/*; do
-      deviceID=$(echo ${d##*/} | cut -c6-)
-      deviceOutput=$(lspci -nns $deviceID)
-      if [[ $deviceOutput =~ (VGA|Audio) ]] && [[ $deviceOutput =~ ("NVIDIA"|"AMD/ATI"|"Arc") ]]; then
-         aGPU[$h]=$deviceID
-         ((h++, allocateGPUOnCycle=1))
-	 echo -e "> Group ${g##*/} - $deviceOutput" >> $logFile 2>&1
-      elif [[ $deviceOutput =~ ("USB controller") ]]; then
-         aUSB[$k]=$deviceID
-         ((k++))
-	 echo -e "> Group ${g##*/} - $deviceOutput" >> $logFile 2>&1
-       else
-         ((miscDevice++))
-	 echo -e "Group ${g##*/} - $deviceOutput" >> $logFile 2>&1
+      device_id=$(echo ${d##*/} | cut -c6-) ; device_full_output=$(lspci -nns $device_id)
+      if [[ $device_full_output =~ ("VGA"|"Audio"|"USB"|"Serial") && $device_full_output =~ ("NVIDIA"|"AMD/ATI"|"Arc") ]]; then
+        IncrementGPU "$device_id" "$device_full_output" "${g##*/}"
+        continue
+      elif [[ $device_full_output =~ ("USB controller") ]]; then
+        IncrementUSB "$device_id" "$device_full_output" "${g##*/}"
+        continue
       fi
+
+      IncrementMisc "${g##*/}" "$device_full_output"
     done
 
-    # If $aGPU was defined earlier but it turns out to be in an unisolated group then dump the variable
-    if [[ ${#aGPU[@]} -gt 0 ]] && [[ $miscDevice -gt 0 ]] && [[ $allocateGPUOnCycle -eq 1 ]]; then
-      unset aGPU
-    elif [[ ${#aUSB[@]} -gt 0 ]] && [[ $miscDevice -gt 0 ]]; then
-      for((m=$((${#aUSB[@]}));m>-1;m--)); do
-        unset aUSB[$m]
+    # If $array_gpu was defined earlier but it turns out to be in an unisolated group then dump the variable
+    if [[ ${#array_gpu[@]} -gt 0 && $misc_device -gt 0 && $gpu_in_group -eq 1 ]]; then
+      unset array_gpu
+    fi
+
+    if [[ ${#array_usb[@]} -gt 0 && $misc_device -gt 0 ]]; then
+      for((m=${#array_usb[@]};m>-1;m--)); do
+        unset array_usb[$m];
       done
     fi
-    unset miscDevice allocateGPUOnCycle
+
+    # Clear variables then continue to next group
+    unset misc_device gpu_in_group
   done
 
-  case ${#aGPU[@]} in
-    2) echo -e "\nFound valid GPU for passthrough! = [ ${aGPU[*]} ]" >> $logFile 2>&1 ;;
-    *) logger error "GPU is not isolated for passthrough!" ;;
-  esac
-  case ${#aUSB[@]} in
-    0) logger error "Couldn't find any isolated USB for passthrough!" ;;
-    *) echo -e "Found valid USB for passthrough! = [ ${aUSB[*]} ]\n" >> $logFile 2>&1 ;;
-  esac
+  # If we didn't find all the components of the GPU then throw an error.
+  [[ ${#array_gpu[@]} -ne $gpu_components ]] && logger error "GPU is not isolated for passthrough!"
 
-  for i in "${!aGPU[@]}"; do
-    k=$(<<< ${aGPU[$i]} tr :. _)
-    aConvertedGPU[$i]="$k"
+  # If we didn't find any isolated USBs then provide an option to continue.
+  if [[ ${#array_usb[@]} -eq 0 ]]; then
+    read -p "$(logger warn "Couldn't find any passable USB, continue without USB? [Y/n]: ")" CHOICE
+    [[ $CHOICE != @("Y"|"y") ]] && logger exit ""
+  fi
+
+  for i in "${!array_gpu[@]}"; do
+    array_convt_gpu[$i]=$(<<< ${array_gpu[$i]} tr :. _)
   done
-  for i in "${!aUSB[@]}"; do
-    k=$(<<< ${aUSB[$i]} tr :. _)
-    aConvertedUSB[$i]="$k"
+
+  for i in "${!array_usb[@]}"; do
+    array_convt_usb[$i]=$(<<< ${array_usb[$i]} tr :. _)
   done
 }
 
@@ -367,9 +375,11 @@ function install_packages()
     fi
   }
 
+  logger info "Running package check."
+
   # Which Distro
   if [[ -e /etc/arch-release ]]; then
-    yes | pacman -S --needed "${arch_depends[@]}" >> $logFile 2>&1
+    yes | pacman -S --needed "${arch_depends[@]}" 2>&1 | tee $log_to_file
   elif [[ -e /etc/debian_version ]]; then
     case $NAME in
       "Ubuntu") arr=ubuntu ;;
@@ -377,16 +387,16 @@ function install_packages()
       "Pop!_OS") arr=pop ;;
     esac
     testVersions "$arr"
-    apt install -y "${debian_depends[@]}" >> $logFile 2>&1
+    apt install -y "${debian_depends[@]}" >> $log_to_file 2>&1
   elif [[ -e /etc/system-release ]]; then
     case $NAME in
       "AlmaLinux")
         testVersions "alma"
-        dnf --enablerepo=crb install -y "${alma_depends[@]}" >> $logFile 2>&1
+        dnf --enablerepo=crb install -y "${alma_depends[@]}" >> $log_to_file 2>&1
         ;;
       *"Fedora"*|"Nobara Linux")
         testVersions "fedora"
-        dnf install -y "${fedora_depends[@]}" >> $logFile 2>&1
+        dnf install -y "${fedora_depends[@]}" >> $log_to_file 2>&1
         ;;
     esac
   else
@@ -394,14 +404,14 @@ function install_packages()
   fi
 
   # If dir doesn't exist then create it
-  if [[ ! -e $ISOPath ]]; then
-    mkdir -p $ISOPath >> $logFile 2>&1
+  if [[ ! -e $iso_path ]]; then
+    mkdir -p $iso_path >> $log_to_file 2>&1
   fi
 
   # Download VirtIO Drivers
-  if [[ ! -e $ISOPath/virtio-win.iso ]]; then
+  if [[ ! -e $iso_path/virtio-win.iso ]]; then
     logger info "Downloading VirtIO Drivers ISO..."
-    wget -P $ISOPath "$virtIO_url" 2>&1 | grep -i "error" >> $logFile 2>&1
+    wget -P $iso_path "$virtIO_url" 2>&1 | grep -i "error" >> $log_to_file 2>&1
   fi
 }
 
@@ -415,16 +425,16 @@ function security_checks()
   ############################################################################################
 
   if [[ $NAME =~ ("Ubuntu"|"Pop!_OS"|"Linux Mint") ]] && [[ ! -e /etc/apparmor.d/disable/usr.sbin.libvirtd ]]; then
-    ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/ >> $logFile 2>&1
-    apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd >> $logFile 2>&1
+    ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/ >> $log_to_file 2>&1
+    apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd >> $log_to_file 2>&1
 
-    firstInstall="true" # Fix for debain-based distros
+    first_install="true" # Fix for debain-based distros
     logger info "Disabling AppArmor permanently for this distro"
   elif [[ $NAME =~ ("Fedora"|"AlmaLinux"|"Nobara Linux") ]]; then
     source /etc/selinux/config
     if [[ $SELINUX != "disabled" ]]; then
-      setenforce 0 >> $logFile 2>&1
-      sed -i "s/SELINUX=.*/SELINUX=disabled/" /etc/selinux/config >> $logFile 2>&1
+      setenforce 0 >> $log_to_file 2>&1
+      sed -i "s/SELINUX=.*/SELINUX=disabled/" /etc/selinux/config >> $log_to_file 2>&1
 
       logger info "Disabling SELinux permanently for this distro"
     fi
@@ -437,31 +447,30 @@ function compile_checks()
   stat(){
     echo "$1" > "$status_file"
   }
+
   # Create a file for checking if the compiled qemu was previously installed.
-  if [[ ! -e "$status_file" ]]; then
-    touch "$status_file"
-  fi
+  [[ ! -e "$status_file" ]] && touch "$status_file"
 
   # Compile Spoofed QEMU & EDK2 OVMF
   if [[ ! -e $qemu_dir/build/qemu-system-x86_64 ]]; then
-    logger info "Starting QEMU compile... please wait."
+    logger info "Starting QEMU compile, this will take a while..."
     stat 0
     qemu_compile
   fi
 
   if [[ ! -e $edk2_dir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
-    logger info "Starting EDK2 compile... please wait."
+    logger info "Starting EDK2 compile, this will take a while..."
     edk2_compile
   fi
 
   # symlink for OVMF
   if [[ ! -e /etc/sGPUpt/OVMF_CODE.fd ]]; then
-    ln -s $edk2_dir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd /etc/sGPUpt/OVMF_CODE.fd >> $logFile 2>&1
+    ln -s $edk2_dir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd /etc/sGPUpt/OVMF_CODE.fd >> $log_to_file 2>&1
   fi
 
   # symlink for QEMU
   if [[ ! -e /etc/sGPUpt/qemu-system-x86_64 ]]; then
-    ln -s $qemu_dir/build/qemu-system-x86_64 /etc/sGPUpt/qemu-system-x86_64 >> $logFile 2>&1
+    ln -s $qemu_dir/build/qemu-system-x86_64 /etc/sGPUpt/qemu-system-x86_64 >> $log_to_file 2>&1
   fi
 
   if [[ ! -e $qemu_dir/build/qemu-system-x86_64 || ! -e $edk2_dir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd ]]; then
@@ -470,23 +479,23 @@ function compile_checks()
 
   if (( $(cat "$status_file") == 0 )); then
     logger info "Finished compiling, installing compiled output..."
-    cd $qemu_dir >> $logFile 2>&1
-    make install >> $logFile 2>&1 # may cause an issue ~ host compains about "Host does not support virtualization"
+    cd $qemu_dir >> $log_to_file 2>&1
+    make install >> $log_to_file 2>&1 # may cause an issue ~ host compains about "Host does not support virtualization"
     stat 1
   fi
 
-  vQEMU=$(/etc/sGPUpt/qemu-system-x86_64 --version | head -n 1 | awk '{print $4}')
+  qemu_version=$(/etc/sGPUpt/qemu-system-x86_64 --version | head -n 1 | awk '{print $4}')
 }
 
 function qemu_compile()
 {
   if [[ -e $qemu_dir ]]; then
-    rm -rf $qemu_dir >> $logFile 2>&1
+    rm -rf $qemu_dir >> $log_to_file 2>&1
   fi
 
-  mkdir -p $qemu_dir >> $logFile 2>&1
-  git clone --branch $qemu_branch $qemu_git $qemu_dir >> $logFile 2>&1
-  cd $qemu_dir >> $logFile 2>&1
+  mkdir -p $qemu_dir >> $log_to_file 2>&1
+  git clone --branch $qemu_branch $qemu_git $qemu_dir 2>&1 | tee $log_to_file
+  cd $qemu_dir >> $log_to_file 2>&1
 
   qemu_motherboard_bios_vendor="AMI"
   qemu_bios_string1="ALASKA"
@@ -517,72 +526,72 @@ function qemu_compile()
   sed -i "s/KVMKVMKVM\\\\0\\\\0\\\\0/$cpu_brand/"                                           $qemu_dir/target/i386/kvm/kvm.c
   sed -i "s/\"bochs\"/\"$qemu_motherboard_bios_vendor\"/"                                   $qemu_dir/block/bochs.c
 
-  ./configure --enable-spice --disable-werror >> $logFile 2>&1
-  make -j$(nproc) >> $logFile 2>&1
+  ./configure --enable-spice --disable-werror 2>&1 | tee $log_to_file
+  make -j$(nproc) 2>&1 | tee $log_to_file
 
-  chown -R $SUDO_USER:$SUDO_USER $qemu_dir >> $logFile 2>&1
+  chown -R $SUDO_USER:$SUDO_USER $qemu_dir >> $log_to_file 2>&1
 }
 
 function edk2_compile()
 {
   if [[ -e $edk2_dir ]]; then
-    rm -rf $edk2_dir >> $logFile 2>&1
+    rm -rf $edk2_dir >> $log_to_file 2>&1
   fi
 
-  mkdir -p $edk2_dir >> $logFile 2>&1
-  cd $edk2_dir >> $logFile 2>&1
+  mkdir -p $edk2_dir >> $log_to_file 2>&1
+  cd $edk2_dir >> $log_to_file 2>&1
 
-  git clone --branch $edk2_branch $edk2_git $edk2_dir >> $logFile 2>&1
-  git submodule update --init >> $logFile 2>&1
+  git clone --branch $edk2_branch $edk2_git $edk2_dir 2>&1 | tee $log_to_file
+  git submodule update --init 2>&1 | tee $log_to_file
 
   # Spoofing edits
   bios_vendor="American Megatrends"
   sed -i "s/\"EDK II\"/\"$bios_vendor\"/" $edk2_dir/MdeModulePkg/MdeModulePkg.dec
   sed -i "s/\"EDK II\"/\"$bios_vendor\"/" $edk2_dir/ShellPkg/ShellPkg.dec
 
-  make -j$(nproc) -C BaseTools >> $logFile 2>&1
-  . edksetup.sh >> $logFile 2>&1
-  OvmfPkg/build.sh -p OvmfPkg/OvmfPkgX64.dsc -a X64 -b RELEASE -t GCC5 >> $logFile 2>&1
+  make -j$(nproc) -C BaseTools >> $log_to_file 2>&1 | tee $log_to_file
+  . edksetup.sh 2>&1 | tee $log_to_file
+  OvmfPkg/build.sh -p OvmfPkg/OvmfPkgX64.dsc -a X64 -b RELEASE -t GCC5 2>&1 | tee $log_to_file
 
-  chown -R $SUDO_USER:$SUDO_USER $edk2_dir >> $logFile 2>&1
+  chown -R $SUDO_USER:$SUDO_USER $edk2_dir >> $log_to_file 2>&1
 }
 
 function setup_libvirt()
 {
   # If group doesn't exist then create it
   if [[ -z $(getent group libvirt) ]]; then
-    groupadd libvirt >> $logFile 2>&1
+    groupadd libvirt >> $log_to_file 2>&1
     logger info "Created libvirt group"
   fi
 
   # If either user isn't in the group then add all of them again
   if [[ -z $(groups $SUDO_USER | grep libvirt | grep kvm | grep input) ]]; then
-    usermod -aG libvirt,kvm,input $SUDO_USER >> $logFile 2>&1
+    usermod -aG libvirt,kvm,input $SUDO_USER >> $log_to_file 2>&1
     logger info "Added user '$SUDO_USER' to groups 'libvirt,kvm,input'"
   fi
 
   if [[ -z $(grep "^unix_sock_group = \"libvirt\"" /etc/libvirt/libvirtd.conf) ]]; then
-    [[ $(grep '#unix_sock_group' /etc/libvirt/libvirtd.conf) ]] && sedParam="#unix_sock_group = \".*\"" || sedParam="unix_sock_group = \".*\""
+    [[ $(grep '#unix_sock_group' /etc/libvirt/libvirtd.conf) ]] && sed_str="#unix_sock_group = \".*\"" || sed_str="unix_sock_group = \".*\""
 
-    sed -i "s/$sedParam/unix_sock_group = \"libvirt\"/" /etc/libvirt/libvirtd.conf
+    sed -i "s/$sed_str/unix_sock_group = \"libvirt\"/" /etc/libvirt/libvirtd.conf
   fi
 
   if [[ -z $(grep "^unix_sock_rw_perms = \"0770\"" /etc/libvirt/libvirtd.conf) ]]; then
-    [[ $(grep '#unix_sock_rw_perms' /etc/libvirt/libvirtd.conf) ]] && sedParam="#unix_sock_rw_perms = \".*\"" || sedParam="unix_sock_rw_perms = \".*\""
+    [[ $(grep '#unix_sock_rw_perms' /etc/libvirt/libvirtd.conf) ]] && sed_str="#unix_sock_rw_perms = \".*\"" || sed_str="unix_sock_rw_perms = \".*\""
 
-    sed -i "s/$sedParam/unix_sock_rw_perms = \"0770\"/" /etc/libvirt/libvirtd.conf
+    sed -i "s/$sed_str/unix_sock_rw_perms = \"0770\"/" /etc/libvirt/libvirtd.conf
   fi
 
   if [[ -z $(grep "^user = \"$SUDO_USER\"" /etc/libvirt/qemu.conf) ]]; then
-    [[ $(grep '#user' /etc/libvirt/qemu.conf) ]] && sedParam="#user = \".*\"" || sedParam="user = \".*\""
+    [[ $(grep '#user' /etc/libvirt/qemu.conf) ]] && sed_str="#user = \".*\"" || sed_str="user = \".*\""
 
-    sed -i "s/$sedParam/user = \"$SUDO_USER\"/" /etc/libvirt/qemu.conf
+    sed -i "s/$sed_str/user = \"$SUDO_USER\"/" /etc/libvirt/qemu.conf
   fi
 
   if [[ -z $(grep "^group = \"$SUDO_USER\"" /etc/libvirt/qemu.conf) ]]; then
-    [[ $(grep '#group' /etc/libvirt/qemu.conf) ]] && sedParam="#group = \".*\"" || sedParam="group = \".*\""
+    [[ $(grep '#group' /etc/libvirt/qemu.conf) ]] && sed_str="#group = \".*\"" || sed_str="group = \".*\""
 
-    sed -i "s/$sedParam/group = \"$SUDO_USER\"/" /etc/libvirt/qemu.conf
+    sed -i "s/$sed_str/group = \"$SUDO_USER\"/" /etc/libvirt/qemu.conf
   fi
 
   # If hooks aren't installed
@@ -598,16 +607,16 @@ function setup_libvirt()
   # Restart or enable libvirtd
   if [[ -n $(pgrep -x "libvirtd") ]]; then
     if [[ -e /run/systemd/system ]]; then
-      systemctl restart libvirtd.service >> $logFile 2>&1
+      systemctl restart libvirtd.service >> $log_to_file 2>&1
     else
-      rc-service libvirtd.service restart >> $logFile 2>&1
+      rc-service libvirtd.service restart >> $log_to_file 2>&1
     fi
   else
     if [[ -e /run/systemd/system ]]; then
-      systemctl enable --now libvirtd.service >> $logFile 2>&1
+      systemctl enable --now libvirtd.service >> $log_to_file 2>&1
     else
-      rc-update add libvirtd.service default >> $logFile 2>&1
-      rc-service libvirtd.service start >> $logFile 2>&1
+      rc-update add libvirtd.service default >> $log_to_file 2>&1
+      rc-service libvirtd.service start >> $log_to_file 2>&1
     fi
   fi
 
@@ -616,74 +625,57 @@ function setup_libvirt()
 
 function create_vm()
 {
-  # Overwrite protection for existing VM configurations
-  if [[ -e /etc/libvirt/qemu/$VMName.xml ]]; then
-    logger error "sGPUpt Will not overwrite an existing VM Config!"
-  fi
+  disk_creation
 
-  # If dir doesn't exist then create it
-  if [[ ! -e $DiskPath ]]; then
-    mkdir -p $DiskPath >> $logFile 2>&1
-  fi
-
-  # Disk img doesn't exist then create it
-  if [[ ! -e $DiskPath/$VMName.qcow2 ]]; then
-    read -p "$(logger info "Do you want to create a drive named ${VMName}? [y/N]: ")" CHOICE
-  else
-    read -p "$(logger info "The drive ${VMName} already exists. Overwrite it? [y/N]: ")" CHOICE
-  fi
-
-  case $CHOICE in
-    y|Y) handle_disk
-      disk_pretty="${DiskSize}G" ;;
-    ""|N) disk_pretty=" " ;;
+  case $cpu_type in
+    AMD)    cpu_features="hv_vendor_id=AuthenticAMD,-x2apic,+svm,+invtsc,+topoext" ;;
+    Intel)  cpu_features="hv_vendor_id=GenuineIntel,-x2apic,+vmx" ;;
   esac
 
-  case $SysType in
-    AMD)    CPUFeatures="hv_vendor_id=AuthenticAMD,-x2apic,+svm,+invtsc,+topoext" ;;
-    Intel)  CPUFeatures="hv_vendor_id=GenuineIntel,-x2apic,+vmx" ;;
-  esac
+  [[ -n ${array_convt_usb[@]} ]] && vm_usb_model="none" || vm_usb_model="qemu-xhci"
 
   OVMF_CODE="/etc/sGPUpt/OVMF_CODE.fd"
-  OVMF_VARS="/var/lib/libvirt/qemu/nvram/${VMName}_VARS.fd"
-  Emulator="/etc/sGPUpt/qemu-system-x86_64"
-  cp $edk2_dir/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_VARS.fd $OVMF_VARS
+  OVMF_VARS="/var/lib/libvirt/qemu/nvram/${vm_name}_VARS.fd"
+  qemu_emulator="/etc/sGPUpt/qemu-system-x86_64"
+  cp ${edk2_dir}/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_VARS.fd $OVMF_VARS
 
   print_vm_data
 
   virt-install \
   --connect qemu:///system \
+  --metadata description="Generated by $tool" \
   --noreboot \
   --noautoconsole \
-  --name $VMName \
-  --memory $vMem \
-  --vcpus $vCPU \
+  --name "$vm_name" \
+  --memory "$vm_memory" \
+  --vcpus "$vm_cpus" \
   --osinfo win10 \
-  --cpu host-model,topology.dies=1,topology.sockets=1,topology.cores=$vCore,topology.threads=$vThread,check=none \
+  --cpu host-model,topology.dies=1,topology.sockets=1,topology.cores=${vm_cores},topology.threads=${vm_threads},check=none \
   --clock rtc_present=no,pit_present=no,hpet_present=no,kvmclock_present=no,hypervclock_present=yes,timer5.name=tsc,timer5.present=yes,timer5.mode=native \
   --boot loader.readonly=yes,loader.type=pflash,loader=$OVMF_CODE \
   --boot nvram=$OVMF_VARS \
-  --boot emulator=$Emulator \
+  --boot emulator=$qemu_emulator \
   --boot cdrom,hd,menu=on \
   --feature vmport.state=off \
-  --disk device=cdrom,path=$ISOPath/virtio-win.iso \
+  --disk device=cdrom,path="" \
+  --disk device=cdrom,path=${iso_path}/virtio-win.iso \
   --import \
-  --network type=network,source=$netName,model=virtio \
+  --network type=network,source=${network_name},model=virtio \
   --sound none \
   --console none \
   --graphics none \
-  --controller type=usb,model=none \
+  --controller type=usb,model=$vm_usb_model \
   --memballoon model=none \
   --tpm model=tpm-crb,type=emulator,version=2.0 \
   --qemu-commandline="-cpu" \
-  --qemu-commandline="host,hv_time,hv_relaxed,hv_vapic,hv_spinlocks=8191,hv_vpindex,hv_reset,hv_synic,hv_stimer,hv_frequencies,hv_reenlightenment,hv_tlbflush,hv_ipi,kvm=off,kvm-hint-dedicated=on,-hypervisor,$CPUFeatures" \
-  >> $logFile 2>&1
+  --qemu-commandline="host,hv_time,hv_relaxed,hv_vapic,hv_spinlocks=8191,hv_vpindex,hv_reset,hv_synic,hv_stimer,hv_frequencies,hv_reenlightenment,hv_tlbflush,hv_ipi,kvm=off,kvm-hint-dedicated=on,-hypervisor,$cpu_features" \
+  >> $log_to_file 2>&1
 
-  if [[ ! -e /etc/libvirt/qemu/$VMName.xml ]]; then
+  if [[ ! -e /etc/libvirt/qemu/${vm_name}.xml ]]; then
     logger error "An error occured while creating the VM, please create an issue on github!"
   fi
 
-  logger info "Adding additional features/optimizations to $VMName..."
+  logger info "Adding additional features/optimizations to ${vm_name}..."
 
   # VM edits
   insert_disk
@@ -692,32 +684,52 @@ function create_vm()
   insert_gpu
   insert_usb
 
+  # AMD libvirt thread fix
+  [[ $cpu_type == "AMD" && -n $(cat /proc/cpuinfo | grep -m 1 "topoext") ]] && virt-xml $vm_name --edit --cpu host-passthrough,require=topoext
+
   # Create VM hooks
   vm_hooks
 
-  logger success "Finished creating $VMName!"
-  logger info "Add your desired OS, then start your VM with Virt Manager or 'sudo virsh start'"
+  logger success "Finished creating $vm_name!"
+  logger success "Open virt-manager then add your chosen OS to CDROM1 then start the VM"
 }
 
-function handle_disk()
+function disk_creation()
 {
-  read -p "$(logger info "Size of disk (GB)[default 128]: ")" DiskSize
-
-  # If reply is blank/invalid then default to 128G
-  if [[ ! $DiskSize =~ ^[0-9]+$ ]] || (( $DiskSize < 1 )); then
-    DiskSize="128"
+  # If dir doesn't exist then create it
+  if [[ ! -e $disk_path ]]; then
+    mkdir -p $disk_path >> $log_to_file 2>&1
   fi
 
-  qemu-img create -f qcow2 $DiskPath/$VMName.qcow2 ${DiskSize}G >> $logFile 2>&1
-  chown $SUDO_USER:$SUDO_USER $DiskPath/$VMName.qcow2 >> $logFile 2>&1
-  includeDrive="1"
+  # Disk img doesn't exist then create it
+  if [[ ! -e $disk_path/$vm_name.qcow2 ]]; then
+    read -p "$(logger info "Do you want to create a drive named ${vm_name}? [y/N]: ")" CHOICE
+  else
+    read -p "$(logger info "The drive ${vm_name} already exists. Overwrite it? [y/N]: ")" CHOICE
+  fi
+
+  if [[ $CHOICE == @("n"|"N"|"") ]]; then
+    disk_pretty=""
+    return
+  fi
+
+  read -p "$(logger info "Size of disk (GB)[default 128]: ")" disk_size
+
+  # If reply is blank/invalid then default to 128G
+  [[ ! $disk_size =~ ^[0-9]+$ || $disk_size -lt 1 ]] && disk_size="128"
+
+  disk_pretty="${disk_size}G"
+
+  qemu-img create -f qcow2 $disk_path/$vm_name.qcow2 ${disk_size}G >> $log_to_file 2>&1
+  chown $SUDO_USER:$SUDO_USER $disk_path/$vm_name.qcow2 >> $log_to_file 2>&1
+  include_drive="1"
 }
 
 function insert_disk()
 {
-  if [[ $includeDrive == "1" ]]; then
-    echo "Adding Disk" >> $logFile 2>&1
-    virt-xml $VMName --add-device --disk path=$DiskPath/$VMName.qcow2,bus=virtio,cache=none,discard=ignore,format=qcow2,bus=sata >> $logFile 2>&1
+  if [[ $include_drive == "1" ]]; then
+    echo "Adding Disk" >> $log_to_file 2>&1
+    virt-xml $vm_name --add-device --disk path=${disk_path}/${vm_name}.qcow2,bus=virtio,cache=none,discard=ignore,format=qcow2,bus=sata >> $log_to_file 2>&1
   fi
 }
 
@@ -725,57 +737,58 @@ function insert_spoofed_board()
 {
   asus_mb
 
-  echo "Spoofing motherboard [ $BaseBoardProduct ]" >> $logFile 2>&1
+  echo "Spoofing motherboard [ $BaseBoardProduct ]" >> $log_to_file 2>&1
 
-  virt-xml $VMName --add-device --sysinfo bios.vendor="$BIOSVendor",bios.version="$BIOSRandVersion",bios.date="$BIOSDate",bios.release="$BIOSRandRelease" >> $logFile 2>&1
-  virt-xml $VMName --add-device --sysinfo system.manufacturer="$SystemManufacturer",system.product="$SystemProduct",system.version="$SystemVersion",system.serial="$SystemRandSerial",system.uuid="$SystemUUID",system.sku="$SystemSku",system.family="$SystemFamily" >> $logFile 2>&1
-  virt-xml $VMName --add-device --sysinfo baseBoard.manufacturer="$BaseBoardManufacturer",baseBoard.product="$BaseBoardProduct",baseBoard.version="$BaseBoardVersion",baseBoard.serial="$BaseBoardRandSerial",baseBoard.asset="$BaseBoardAsset",baseBoard.location="$BaseBoardLocation" >> $logFile 2>&1
-  virt-xml $VMName --add-device --sysinfo chassis.manufacturer="$ChassisManufacturer",chassis.version="$ChassisVersion",chassis.serial="$ChassisSerial",chassis.asset="$ChassisAsset",chassis.sku="$ChassisSku" >> $logFile 2>&1
-  virt-xml $VMName --add-device --sysinfo oemStrings.entry0="$oemStrings0",oemStrings.entry1="$oemStrings1" >> $logFile 2>&1
+  virt-xml $vm_name --add-device --sysinfo bios.vendor="$BIOSVendor",bios.version="$BIOSRandVersion",bios.date="$BIOSDate",bios.release="$BIOSRandRelease" >> $log_to_file 2>&1
+  virt-xml $vm_name --add-device --sysinfo system.manufacturer="$SystemManufacturer",system.product="$SystemProduct",system.version="$SystemVersion",system.serial="$SystemRandSerial",system.uuid="$SystemUUID",system.sku="$SystemSku",system.family="$SystemFamily" >> $log_to_file 2>&1
+  virt-xml $vm_name --add-device --sysinfo baseBoard.manufacturer="$BaseBoardManufacturer",baseBoard.product="$BaseBoardProduct",baseBoard.version="$BaseBoardVersion",baseBoard.serial="$BaseBoardRandSerial",baseBoard.asset="$BaseBoardAsset",baseBoard.location="$BaseBoardLocation" >> $log_to_file 2>&1
+  virt-xml $vm_name --add-device --sysinfo chassis.manufacturer="$ChassisManufacturer",chassis.version="$ChassisVersion",chassis.serial="$ChassisSerial",chassis.asset="$ChassisAsset",chassis.sku="$ChassisSku" >> $log_to_file 2>&1
+  virt-xml $vm_name --add-device --sysinfo oemStrings.entry0="$oemStrings0",oemStrings.entry1="$oemStrings1" >> $log_to_file 2>&1
 }
 
 function insert_cpu_pinning()
 {
-  echo "Adding CPU Pinning for [ $CPUName ]" >> $logFile 2>&1
-  for (( i=0; i<$vCPU; i++ )); do
-    virt-xml $VMName --edit --cputune="vcpupin$i.vcpu=$i,vcpupin$i.cpuset=${aCPU[$i]}" >> $logFile 2>&1
+  echo "Adding CPU Pinning for [ $cpu_name ]" >> $log_to_file 2>&1
+  for (( i=0; i<$vm_cpus; i++ )); do
+    virt-xml $vm_name --edit --cputune="vcpupin$i.vcpu=$i,vcpupin$i.cpuset=${array_cpu[$i]}" >> $log_to_file 2>&1
   done
 }
 
 function insert_gpu()
 {
-  echo "Adding GPU" >> $logFile 2>&1
-  for gpu in ${aConvertedGPU[@]}; do
-    virt-xml $VMName --add-device --host-device="pci_0000_$gpu" >> $logFile 2>&1
+  echo "Adding GPU components" >> $log_to_file 2>&1
+  for gpu in ${array_convt_gpu[@]}; do
+    virt-xml $vm_name --add-device --host-device="pci_0000_$gpu" >> $log_to_file 2>&1
   done
 }
 
 function insert_usb()
 {
-  echo "Adding USB Controllers" >> $logFile 2>&1
-  for usb in ${aConvertedUSB[@]}; do
-    virt-xml $VMName --add-device --host-device="pci_0000_$usb" >> $logFile 2>&1
+  [[ -n ${array_convt_usb[@]} ]] && echo "Adding USB controllers" >> $log_to_file 2>&1
+  for usb in ${array_convt_usb[@]}; do
+    virt-xml $vm_name --add-device --host-device="pci_0000_$usb" >> $log_to_file 2>&1
   done
 }
 
 function vm_hooks()
 {
-  pHookVM="/etc/libvirt/hooks/qemu.d/$VMName"
-  if [[ -e $pHookVM ]]; then
-    rm -rf $pHookVM >> $logFile 2>&1
-  fi
+  vm_base_hook="/etc/libvirt/hooks/qemu.d/${vm_name}"
 
+  # Remove previous hooks
+  [[ -e $vm_base_hook ]] && rm -rf $vm_base_hook >> $log_to_file 2>&1
+
+  # Create hooks
   start_sh
   stop_sh
 
-  if [[ ! -e $pHookVM/prepare/begin/start.sh || ! -e $pHookVM/release/end/stop.sh ]]; then
-    logger error "Failed to create hooks report this!"
+  if [[ ! -e ${vm_base_hook}/prepare/begin/start.sh || ! -e ${vm_base_hook}/release/end/stop.sh ]]; then
+    logger error "Failed to create hooks, report this!"
   fi
 
-  logger info "Successfully created passthrough hooks!"
+  logger success "Successfully created passthrough hooks!"
 
   # Set execute permissions for all the files in this path
-  chmod +x -R $pHookVM >> $logFile 2>&1
+  chmod +x -R $vm_base_hook >> $log_to_file 2>&1
 }
 
 function asus_mb()
@@ -807,7 +820,7 @@ function asus_mb()
   BIOSRandVersion=$(shuf -i 3200-4600 -n 1)
   BIOSRandRelease=$(shuf -i 1-6 -n 1).$((15 * $(shuf -i 1-6 -n 1)))
 
-  SystemUUID=$(virsh domuuid $VMName)
+  SystemUUID=$(virsh domuuid $vm_name)
   SystemManufacturer="System manufacturer"
   SystemProduct="System Product Name"
   SystemVersion="System Version"
@@ -834,9 +847,9 @@ function asus_mb()
 
 function vfio_hooks()
 {
-  mkdir -p /etc/libvirt/hooks/qemu.d/ >> $logFile 2>&1
-  touch    /etc/libvirt/hooks/qemu    >> $logFile 2>&1
-  chmod +x -R /etc/libvirt/hooks      >> $logFile 2>&1
+  mkdir -p /etc/libvirt/hooks/qemu.d/ >> $log_to_file 2>&1
+  touch    /etc/libvirt/hooks/qemu    >> $log_to_file 2>&1
+  chmod +x -R /etc/libvirt/hooks      >> $log_to_file 2>&1
 
   # https://github.com/PassthroughPOST/VFIO-Tools/blob/master/libvirt_hooks/qemu
 	cat <<- 'DOC' >> /etc/libvirt/hooks/qemu
@@ -863,89 +876,84 @@ function vfio_hooks()
 function start_sh()
 {
   # Create begin hook for VM if it doesn't exist
-  if [[ ! -e $pHookVM/prepare/begin/ ]]; then
-    mkdir -p $pHookVM/prepare/begin/         >> $logFile 2>&1
-    touch    $pHookVM/prepare/begin/start.sh >> $logFile 2>&1
+  if [[ ! -e $vm_base_hook/prepare/begin/ ]]; then
+    mkdir -p $vm_base_hook/prepare/begin/         >> $log_to_file 2>&1
+    touch    $vm_base_hook/prepare/begin/start.sh >> $log_to_file 2>&1
   fi
 
-  fHookStart="/etc/libvirt/hooks/qemu.d/$VMName/prepare/begin/start.sh"
-  > $fHookStart
-	cat <<- 'DOC' >> $fHookStart
+  vm_start_hook="/etc/libvirt/hooks/qemu.d/${vm_name}/prepare/begin/start.sh"
+  > $vm_start_hook
+	cat <<- DOC >> $vm_start_hook
 		#!/bin/bash
-		set -x
+		log_to_file=$log_to_file
 
-		systemctl stop display-manager
-		if [[ -n $(pgrep -x "gdm-x-session") ]]; then
-		  killall gdm-x-session
-		elif [[ -n $(pgrep -x "gdm-wayland-session") ]]; then
-		  killall gdm-wayland-session
-		fi
+		systemctl stop display-manager 2>&1 | tee \$log_to_file
+		[[ -n \$(pgrep -x "gdm-x-session") ]]       && killall gdm-x-session       2>&1 | tee \$log_to_file
+		[[ -n \$(pgrep -x "gdm-wayland-session") ]] && killall gdm-wayland-session 2>&1 | tee \$log_to_file
 
 	DOC
-		if [[ $GPUType == "NVIDIA" ]]; then
-			cat <<- 'DOC' >> $fHookStart
-				if [[ -n $(pgrep -x "nvidia") ]]; then
-				  pkill -f nvidia
-				fi
+		if [[ $gpu_brand == "NVIDIA" ]]; then
+			cat <<- DOC >> $vm_start_hook
+				[[ -n \$(pgrep -x "nvidia") ]] && pkill -f nvidia 2>&1 | tee \$log_to_file
 
 			DOC
 		fi
 
-		for gpu in ${aConvertedGPU[@]}; do
-		  echo -e "virsh nodedev-detach pci_0000_$gpu"
-		done >> $fHookStart
+		for gpu in ${array_convt_gpu[@]}; do
+		  echo -e "virsh nodedev-detach pci_0000_$gpu 2>&1 | tee \$log_to_file"
+		done >> $vm_start_hook
 
-		for usb in ${aConvertedUSB[@]}; do
-		  echo -e "virsh nodedev-detach pci_0000_$usb"
-		done >> $fHookStart
-	cat <<- DOC >> $fHookStart
+		for usb in ${array_convt_usb[@]}; do
+		  echo -e "virsh nodedev-detach pci_0000_$usb 2>&1 | tee \$log_to_file"
+		done >> $vm_start_hook
+	cat <<- DOC >> $vm_start_hook
 
-		systemctl set-property --runtime -- user.slice AllowedCPUs=$ReservedCPUs
-		systemctl set-property --runtime -- system.slice AllowedCPUs=$ReservedCPUs
-		systemctl set-property --runtime -- init.scope AllowedCPUs=$ReservedCPUs
+		systemctl set-property --runtime -- user.slice AllowedCPUs=$reserved_cpu_group
+		systemctl set-property --runtime -- system.slice AllowedCPUs=$reserved_cpu_group
+		systemctl set-property --runtime -- init.scope AllowedCPUs=$reserved_cpu_group
 	DOC
 }
 
 function stop_sh()
 {
   # Create release hook for VM if it doesn't exist
-  if [[ ! -e $pHookVM/release/ ]]; then
-    mkdir -p $pHookVM/release/end/        >> $logFile 2>&1
-    touch    $pHookVM/release/end/stop.sh >> $logFile 2>&1
+  if [[ ! -e $vm_base_hook/release/ ]]; then
+    mkdir -p $vm_base_hook/release/end/        >> $log_to_file 2>&1
+    touch    $vm_base_hook/release/end/stop.sh >> $log_to_file 2>&1
   fi
 
-  fHookEnd="/etc/libvirt/hooks/qemu.d/$VMName/release/end/stop.sh"
-  > $fHookEnd
-	cat <<- 'DOC' >> $fHookEnd
+  vm_stop_hook="/etc/libvirt/hooks/qemu.d/${vm_name}/release/end/stop.sh"
+  > $vm_stop_hook
+	cat <<- DOC >> $vm_stop_hook
 		#!/bin/bash
-		set -x
+		log_to_file=$log_to_file
 
 	DOC
-		for gpu in ${aConvertedGPU[@]}; do
-		  echo -e "virsh nodedev-reattach pci_0000_$gpu"
-		done >> $fHookEnd
+		for gpu in ${array_convt_gpu[@]}; do
+		  echo -e "virsh nodedev-reattach pci_0000_$gpu 2>&1 | tee \$log_to_file"
+		done >> $vm_stop_hook
 
-		for usb in ${aConvertedUSB[@]}; do
-		  echo -e "virsh nodedev-reattach pci_0000_$usb"
-		done >> $fHookEnd
-	cat <<- DOC >> $fHookEnd
+		for usb in ${array_convt_usb[@]}; do
+		  echo -e "virsh nodedev-reattach pci_0000_$usb 2>&1 | tee \$log_to_file"
+		done >> $vm_stop_hook
+	cat <<- DOC >> $vm_stop_hook
 
-		systemctl start display-manager
+		systemctl start display-manager 2>&1 | tee \$log_to_file
 
-		systemctl set-property --runtime -- user.slice AllowedCPUs=$AllCPUs
-		systemctl set-property --runtime -- system.slice AllowedCPUs=$AllCPUs
-		systemctl set-property --runtime -- init.scope AllowedCPUs=$AllCPUs
+		systemctl set-property --runtime -- user.slice AllowedCPUs=$all_cpu_groups
+		systemctl set-property --runtime -- system.slice AllowedCPUs=$all_cpu_groups
+		systemctl set-property --runtime -- init.scope AllowedCPUs=$all_cpu_groups
 	DOC
 }
 
 function handle_virt_net()
 {
-  # If '$netName' doesn't exist then create it!
-  if [[ $(virsh net-autostart $netName 2>&1) =~ "Network not found" ]]; then
-    > $netPath
-	cat <<- 'DOC' >> $netPath
+  # If '$network_name' doesn't exist then create it!
+  if [[ $(virsh net-autostart $network_name 2>&1) =~ "Network not found" ]]; then
+    > $network_path
+	cat <<- DOC >> $network_path
 		<network>
-		  <name>$netName</name>
+		  <name>$network_name</name>
 		  <forward mode="nat">
 		    <nat>
 		      <port start="1024" end="65535"/>
@@ -959,20 +967,20 @@ function handle_virt_net()
 		</network>
 	DOC
 
-    virsh net-define $netPath >> $logFile 2>&1
-    rm $netPath >> $logFile 2>&1
+    virsh net-define $network_path >> $log_to_file 2>&1
+    rm $network_path >> $log_to_file 2>&1
 
     logger info "Network manually created"
   fi
 
-  # set autostart on network '$netName' in case it wasn't already on for some reason
-  if [[ $(virsh net-info $netName | grep "Autostart" | awk '{print $2}') == "no" ]]; then
-    virsh net-autostart $netName >> $logFile 2>&1
+  # set autostart on network '$network_name' in case it wasn't already on for some reason
+  if [[ $(virsh net-info $network_name | grep "Autostart" | awk '{print $2}') == "no" ]]; then
+    virsh net-autostart $network_name >> $log_to_file 2>&1
   fi
 
   # start network if it isn't active
-  if [[ $(virsh net-info $netName | grep "Active" | awk '{print $2}') == "no" ]]; then
-    virsh net-start $netName >> $logFile 2>&1
+  if [[ $(virsh net-info $network_name | grep "Active" | awk '{print $2}') == "no" ]]; then
+    virsh net-start $network_name >> $log_to_file 2>&1
   fi
 }
 
@@ -981,68 +989,70 @@ function print_vm_data()
 	cat <<- DOC
 	["VM Configuration"]
 	{
-	  "System Type":"$SysType"
-	  "Name":"$VMName"
-	  "vCPU":"$vCPU"
-	  "Memory":"${vMem}M"
+	  "System Type":"$cpu_type"
+	  "Name":"$vm_name"
+	  "vCPU":"$vm_cpus"
+	  "Memory":"${vm_memory}M"
 	  "Disk":"$disk_pretty"
-	  "QEMU Version":"$vQEMU"
-	  "Additional Devices": [ ${aGPU[@]} ${aUSB[@]} ]
+	  "QEMU Version":"$qemu_version"
+	  "Additional Devices": [ ${array_gpu[@]} ${array_usb[@]} ]
 	}
 	DOC
 
-	cat <<- DOC >> $logFile 2>&1
+	cat <<- DOC >> $log_to_file 2>&1
 	["VM Configuration"]
 	{
-	  "System Type":"$SysType"
-	  "Name":"$VMName"
-	  "vCPU":"$vCPU"
-	  "Memory":"${vMem}M"
+	  "System Type":"$cpu_type"
+	  "Name":"$vm_name"
+	  "vCPU":"$vm_cpus"
+	  "Memory":"${vm_memory}M"
 	  "Disk":"$disk_pretty"
-	  "QEMU Version":"$vQEMU"
-	  "Additional Devices": [ ${aGPU[@]} ${aUSB[@]} ]
+	  "QEMU Version":"$qemu_version"
+	  "Additional Devices": [ ${array_gpu[@]} ${array_usb[@]} ]
 	}
 	DOC
 }
 
 function print_query()
 {
-	cat <<- DOC >> $logFile
+	cat <<- DOC >> $log_to_file
 	["Query Result"]
 	{
+	  "Script Version":"$version",
+
 	  "System Conf":[
 	  {
 	    "CPU":[
 	    {
-	        "ID":"$CPUBrand",
-	        "Name":"$CPUName",
-	        "CPU Pinning": [ "${aCPU[@]}" ]
+	        "ID":"$cpu_brand_id",
+	        "Name":"$cpu_name",
+	        "CPU Pinning": [ "${array_cpu[@]}" ]
 	    }],
 
-	    "Sys.Memory":"$SysMem",
+	    "Sys.Memory":"$host_memory",
 
 	    "Isolation":[
 	    {
-	        "ReservedCPUs":"$ReservedCPUs",
-	        "AllCPUs":"$AllCPUs"
+	        "ReservedCPUs":"$reserved_cpu_group",
+	        "AllCPUs":"$all_cpu_groups"
 	    }],
 
 	    "PCI":[
 	    {
-	        "GPU Name":"$GPUName",
-	        "GPU IDs": [ ${aGPU[@]} ],
-	        "USB IDs": [ ${aUSB[@]} ]
+	        "GPU Name":"$gpu_name",
+	        "GPU IDs": [ ${array_gpu[@]} ],
+	        "USB IDs": [ ${array_usb[@]} ]
 	        }],
 	    }],
 
 	    "Virt Conf":[
 	    {
-	        "vCPUs":"$vCPU",
-	        "vCores":"$vCore",
-	        "vThreads":"$vThread",
-	        "vMem":"$vMem",
-	        "Converted GPU IDs": [ ${aConvertedGPU[@]} ],
-	        "Converted USB IDs": [ ${aConvertedUSB[@]} ]
+	        "vCPUs":"$vm_cpus",
+	        "vCores":"$vm_cores",
+	        "vThreads":"$vm_threads",
+	        "vMem":"$vm_memory",
+	        "Converted GPU IDs": [ ${array_convt_gpu[@]} ],
+	        "Converted USB IDs": [ ${array_convt_usb[@]} ]
 	    }]
 	}
 	DOC
