@@ -571,27 +571,19 @@ function setup_libvirt()
   fi
 
   if [[ -z $(grep "^unix_sock_group = \"libvirt\"" /etc/libvirt/libvirtd.conf) ]]; then
-    [[ $(grep '#unix_sock_group' /etc/libvirt/libvirtd.conf) ]] && sed_str="#unix_sock_group = \".*\"" || sed_str="unix_sock_group = \".*\""
-
-    sed -i "s/$sed_str/unix_sock_group = \"libvirt\"/" /etc/libvirt/libvirtd.conf
+    sed -i "s/^.*unix_sock_group = \".*\"/unix_sock_group = \"libvirt\"/" /etc/libvirt/libvirtd.conf
   fi
 
   if [[ -z $(grep "^unix_sock_rw_perms = \"0770\"" /etc/libvirt/libvirtd.conf) ]]; then
-    [[ $(grep '#unix_sock_rw_perms' /etc/libvirt/libvirtd.conf) ]] && sed_str="#unix_sock_rw_perms = \".*\"" || sed_str="unix_sock_rw_perms = \".*\""
-
-    sed -i "s/$sed_str/unix_sock_rw_perms = \"0770\"/" /etc/libvirt/libvirtd.conf
+    sed -i "s/^.*unix_sock_rw_perms = \".*\"/unix_sock_rw_perms = \"0770\"/" /etc/libvirt/libvirtd.conf
   fi
 
   if [[ -z $(grep "^user = \"$SUDO_USER\"" /etc/libvirt/qemu.conf) ]]; then
-    [[ $(grep '#user' /etc/libvirt/qemu.conf) ]] && sed_str="#user = \".*\"" || sed_str="user = \".*\""
-
-    sed -i "s/$sed_str/user = \"$SUDO_USER\"/" /etc/libvirt/qemu.conf
+    sed -i "s/.*user = \".*\"/user = \"$SUDO_USER\"/" /etc/libvirt/qemu.conf
   fi
 
   if [[ -z $(grep "^group = \"$SUDO_USER\"" /etc/libvirt/qemu.conf) ]]; then
-    [[ $(grep '#group' /etc/libvirt/qemu.conf) ]] && sed_str="#group = \".*\"" || sed_str="group = \".*\""
-
-    sed -i "s/$sed_str/group = \"$SUDO_USER\"/" /etc/libvirt/qemu.conf
+    sed -i "s/.*group = \".*\"/group = \"$SUDO_USER\"/" /etc/libvirt/qemu.conf
   fi
 
   # If hooks aren't installed
@@ -600,24 +592,13 @@ function setup_libvirt()
   fi
 
   # Kill virt-manager because it shouldn't opened during the install
-  if [[ -n $(pgrep -x "virt-manager") ]]; then
-    killall virt-manager
-  fi
+  [[ -n $(pgrep -x "virt-manager") ]] && killall virt-manager
 
   # Restart or enable libvirtd
   if [[ -n $(pgrep -x "libvirtd") ]]; then
-    if [[ -e /run/systemd/system ]]; then
-      systemctl restart libvirtd.service >> $log_to_file 2>&1
-    else
-      rc-service libvirtd.service restart >> $log_to_file 2>&1
-    fi
+    systemctl restart libvirtd.service >> $log_to_file 2>&1
   else
-    if [[ -e /run/systemd/system ]]; then
-      systemctl enable --now libvirtd.service >> $log_to_file 2>&1
-    else
-      rc-update add libvirtd.service default >> $log_to_file 2>&1
-      rc-service libvirtd.service start >> $log_to_file 2>&1
-    fi
+    systemctl enable --now libvirtd.service >> $log_to_file 2>&1
   fi
 
   handle_virt_net
