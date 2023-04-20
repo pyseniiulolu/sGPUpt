@@ -97,7 +97,7 @@ function main()
   [[ -z $(grep -E -m 1 "svm|vmx" /proc/cpuinfo) ]] && logger error "This system doesn't support virtualization, please enable it then run this script again!"
   [[ ! -e /sys/firmware/efi ]]                     && logger error "This system isn't installed in UEFI mode!"
   [[ -z $(ls -A /sys/class/iommu/) ]]              && logger error "This system doesn't support IOMMU, please enable it then run this script again!"
-  [[ $(nproc) -ne $(nproc --all) ]]                && logger error "The script will not work correctly if your CPU is isolated, please remove the isolation then try again."
+  [[ $(nproc) -ne $(grep --count ^processor /proc/cpuinfo) ]]                && logger error "The script will not work correctly if your CPU is isolated, please remove the isolation then try again."
 
   header
 
