@@ -97,6 +97,7 @@ function main()
   [[ -z $(grep -E -m 1 "svm|vmx" /proc/cpuinfo) ]] && logger error "This system doesn't support virtualization, please enable it then run this script again!"
   [[ ! -e /sys/firmware/efi ]]                     && logger error "This system isn't installed in UEFI mode!"
   [[ -z $(ls -A /sys/class/iommu/) ]]              && logger error "This system doesn't support IOMMU, please enable it then run this script again!"
+  [[ $(nproc) -ne $(nproc --all) ]]                && logger error "The script will not work correctly if your CPU is isolated, please remove the isolation then try again."
 
   header
 
@@ -282,7 +283,7 @@ function find_pcie_devices()
 function install_packages()
 {
   source /etc/os-release
-  arch_depends=(   "qemu-base" "virt-manager" "virt-viewer" "dnsmasq" "vde2" "bridge-utils" "openbsd-netcat" "libguestfs" "swtpm" "git" "make" "ninja" "nasm" "iasl" "pkg-config" "spice-protocol" "dmidecode" )
+  arch_depends=(   "qemu-base" "virt-manager" "virt-viewer" "dnsmasq" "vde2" "bridge-utils" "openbsd-netcat" "libguestfs" "swtpm" "git" "make" "ninja" "nasm" "iasl" "pkg-config" "spice-protocol" "dmidecode" "gcc" )
   fedora_depends=( "qemu-kvm" "virt-manager" "virt-viewer" "virt-install" "libvirt-daemon-config-network" "libvirt-daemon-kvm" "swtpm" "g++" "ninja-build" "nasm" "iasl" "libuuid-devel" "glib2-devel" "pixman-devel" "spice-protocol" "spice-server-devel" )
   alma_depends=(   "qemu-kvm" "virt-manager" "virt-viewer" "virt-install" "libvirt-daemon-config-network" "libvirt-daemon-kvm" "swtpm" "git" "make" "gcc" "g++" "ninja-build" "nasm" "iasl" "libuuid-devel" "glib2-devel" "pixman-devel" "spice-protocol" "spice-server-devel" )
   debian_depends=( "qemu-kvm" "virt-manager" "virt-viewer" "libvirt-daemon-system" "libvirt-clients" "bridge-utils" "swtpm" "mesa-utils" "git" "ninja-build" "nasm" "iasl" "pkg-config" "libglib2.0-dev" "libpixman-1-dev" "meson" "build-essential" "uuid-dev" "python-is-python3" "libspice-protocol-dev" "libspice-server-dev" )
