@@ -262,6 +262,11 @@ function find_pcie_devices()
     for d in $g/devices/*; do
       device_id=$(echo ${d##*/} | cut -c6-)
       device_output=$(lspci -nns $device_id)
+      
+      if [[ $device_output =~ "PCI bridge" ]]; then
+        continue
+      fi
+      
       if [[ $device_output =~ ("VGA"|"Audio"|"USB"|"Serial") && $device_output =~ ("NVIDIA"|"AMD/ATI"|"Arc") ]]; then
         IncrementGPU "${g##*/}" "$device_id" "$device_output"
         continue
