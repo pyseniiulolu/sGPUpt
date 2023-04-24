@@ -514,6 +514,14 @@ function setup_libvirt()
     systemctl enable --now libvirtd.service 2>&1 | tee -a "$log_file"
   fi
 
+  if (systemctl is-active --quiet firewalld); then
+    firewalld_output=$(firewall-cmd --list-all --zone=libvirt >> "$log_file" 2>&1)
+    if [[ ! $firewalld_output =~ ("target: ACCEPT") ]]; then
+      firewall-cmd --zone=libvirt --permanent --set-target=ACCEPT >> "$log_file" 2>&1
+      firewall-cmd --reload >> "$log_file" 2>&1
+    fi
+  fi
+
   handle_virt_net
 }
 
