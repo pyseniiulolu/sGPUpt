@@ -16,6 +16,7 @@ sGPUpt is designed for desktop VFIO users looking to passthrough their only GPU.
 | Arch Linux        |   ✔️   |
 | Manjaro           |   ✔️   |
 | Garuda            |   ✔️   |
+| EndeavourOS       |   ✔️   |
 | Fedora (36,37)    |   ✔️   |
 | Nobara (37)       |   ✔️   |
 | AlmaLinux (9.1)   |   ✔️   |
