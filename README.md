@@ -1,21 +1,14 @@
-# sGPUpt Intro
+# sGPUpt
 sGPUpt is designed for desktop VFIO users looking to passthrough their only GPU.
 
-Check below to ensure compatibility with your hardware and distribution.
-
-# Functionality
+### [Functionality]
 * Validates IOMMU groups
-* Installs required virtualization packages 
+* Installs required packages
 * Compiles spoofed QEMU & EDK2 OVMF
 * Creates hooks for single GPU passthrough
 * Creates a VM based on your system specs with additional features and optimizations
 
-# Usage
-```
-curl -O https://raw.githubusercontent.com/lexi-src/sGPUpt/master/sGPUpt.sh
-chmod +x sGPUpt.sh
-sudo ./sGPUpt.sh
-```
+**❗ Please check below to ensure compatibility with your hardware and distribution. ❗**
 
 # Distro Support
 | Distro            | Status |
@@ -36,37 +29,39 @@ sudo ./sGPUpt.sh
 |   CPU + GPU     |  Status | Additional Information                                           |
 | --------------- | ------- | ---------------------------------------------------------------- |
 | AMD + Nvidia    |    ✔️   | -                                                                |
-| AMD + AMD       |    ✔️   | may require [vendor-reset](https://github.com/gnif/vendor-reset) |
+| AMD + AMD       |    ✔️   | XT models require [vendor-reset](https://github.com/gnif/vendor-reset) |
 | AMD + Intel     |    ❌   | -                                                                |
 | Intel + Nvidia  |    ✔️   | -                                                                |
-| Intel + AMD     |    ✔️   | may require [vendor-reset](https://github.com/gnif/vendor-reset) |
+| Intel + AMD     |    ✔️   | XT models require [vendor-reset](https://github.com/gnif/vendor-reset) |
 | Intel + Intel   |    ❌   | -                                                                |
+
+# Prerequisites
+* Enable AMD-V/VT-x in your BIOS
+* Disable CSM in your BIOS
+* Disable ReBAR in your BIOS.
+
+if you have an Intel CPU then add these parameters to grub:
+>intel_iommu=on iommu=pt
+
+# Usage
+```
+curl -O https://raw.githubusercontent.com/lexi-src/sGPUpt/master/sGPUpt.sh
+chmod +x sGPUpt.sh
+sudo ./sGPUpt.sh
+```
 
 # Troubleshooting
 
-### [Device is not isolated]
-The script found an extra device in one of your IOMMU groups, using a kernel with an ACS patch should resolve the issue.
-
-* Debian-based fix - Install [XanMod](https://xanmod.org/) kernel then add **pcie_acs_override=downstream,multifunction** to grub.
-* Arch-based fix - Refer to [Arch Wiki](https://wiki.archlinux.org/title/PCI_passthrough_via_OVMF#Bypassing_the_IOMMU_groups_(ACS_override_patch)).
 ### [Black screen/BIOS screen]
 Known reasons this can occur:
-* The hooks are failing due to the GPU driver not releasing the card (possible side effect of CSM being enabled in your BIOS).
-* Your card may require a VBIOS, instructions can be found on [Arch Wiki](https://wiki.archlinux.org/title/PCI_passthrough_via_OVMF#UEFI_(OVMF)_compatibility_in_VBIOS).
-### [VM instability]
-Known Fixes:
-* Disable ReBAR in your BIOS.
-* Disable CSM in your BIOS.
-* Disable svm/vmx in the generated VM configuration.
+* If you use an Arch-based distro then you may need to load the [vfio modules](https://wiki.archlinux.org/title/PCI_passthrough_via_OVMF#mkinitcpio) early
+* The hooks are failing because a program is still using the GPU.
+* If you have an older card that doesn't have UEFI support you'll need a VBIOS.
 
-Still experiencing instability?
-* VirtIO drivers can conflict with NVIDIA/AMD drivers so attempt to run your VM without VirtIO devices attached.
-* If you're using an existing Windows install from an HDD/SSD you should probably reinstall Windows.
+### [Device is not isolated]
+Your GPU is grouped with other devices which means you're unable to pass it unless you use a kernel with the ACS patch.
 
-# How to contribute without coding knowledge
-Providing detailed information about your cpu, motherboard, iommu groups and other script related issues will improve the script.
+* ACS for Debian - Install [XanMod](https://xanmod.org/) kernel then add **pcie_acs_override=downstream,multifunction** to grub.
+* ACS for Arch - **sudo pacman -S linux-zen** then add **pcie_acs_override=downstream,multifunction** to grub.
 
-If you're willing to provide this information then please open an issue or reach out to me directly.
-
-# Direct Contacts
-Reddit: [lexi-src](https://www.reddit.com/user/lexi-src)
+⚠️ **NOTE**: The ACS patch has inherent security risks and *can* damage hardware. ⚠️
