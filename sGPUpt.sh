@@ -30,7 +30,7 @@ iso_path="/etc/sGPUpt/iso"
 #iso_path=/home/$SUDO_USER/Documents/iso
 
 # Compile
-qemu_branch="v7.2.0"
+qemu_branch="v8.0.0"
 qemu_dir="/etc/sGPUpt/qemu-emulator"
 edk2_branch="edk2-stable202211"
 edk2_dir="/etc/sGPUpt/edk-compile"
@@ -263,7 +263,7 @@ function find_pcie_devices()
       device_id=$(echo ${d##*/} | cut -c6-)
       device_output=$(lspci -nns $device_id)
       
-      if [[ $device_output =~ "PCI bridge" ]]; then
+      if [[ $device_output =~ ("PCI bridge"|"Non-Essential Instrumentation") ]]; then
         continue
       fi
       
@@ -512,6 +512,14 @@ function setup_libvirt()
     systemctl restart libvirtd.service 2>&1 | tee -a "$log_file"
   else
     systemctl enable --now libvirtd.service 2>&1 | tee -a "$log_file"
+  fi
+
+  if (systemctl is-active --quiet firewalld); then
+    firewalld_output=$(firewall-cmd --list-all --zone=libvirt >> "$log_file" 2>&1)
+    if [[ ! $firewalld_output =~ ("target: ACCEPT") ]]; then
+      firewall-cmd --zone=libvirt --permanent --set-target=ACCEPT >> "$log_file" 2>&1
+      firewall-cmd --reload >> "$log_file" 2>&1
+    fi
   fi
 
   handle_virt_net
