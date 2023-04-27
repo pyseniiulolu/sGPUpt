@@ -263,7 +263,7 @@ function find_pcie_devices()
       device_id=$(echo ${d##*/} | cut -c6-)
       device_output=$(lspci -nns $device_id)
       
-      if [[ $device_output =~ "PCI bridge" ]]; then
+      if [[ $device_output =~ ("PCI bridge"|"Non-Essential Instrumentation") ]]; then
         continue
       fi
       
