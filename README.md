@@ -2,6 +2,7 @@
 sGPUpt is designed for desktop VFIO users looking to passthrough their only GPU.
 
 ### [Functionality]
+* Automated CPU pinning
 * Validates IOMMU groups
 * Installs required packages
 * Compiles spoofed QEMU & EDK2 OVMF
@@ -44,6 +45,9 @@ sGPUpt is designed for desktop VFIO users looking to passthrough their only GPU.
 if you have an Intel CPU then add these parameters to grub:
 >intel_iommu=on iommu=pt
 
+If you use an Arch-based distro you may need to load the VFIO modules early
+> [Arch Wiki](https://wiki.archlinux.org/title/PCI_passthrough_via_OVMF#mkinitcpio)
+
 # Usage
 ```
 curl -O https://raw.githubusercontent.com/lexi-src/sGPUpt/master/sGPUpt.sh
@@ -55,7 +59,6 @@ sudo ./sGPUpt.sh
 
 ### [Black screen/BIOS screen]
 Known reasons this can occur:
-* If you use an Arch-based distro then you may need to load the [vfio modules](https://wiki.archlinux.org/title/PCI_passthrough_via_OVMF#mkinitcpio) early
 * The hooks are failing because a program is still using the GPU.
 * If you have an older card that doesn't have UEFI support you'll need a VBIOS.
 
