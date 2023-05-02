@@ -291,7 +291,7 @@ function install_packages()
   arch_depends=(   "qemu-base" "virt-manager" "virt-viewer" "dnsmasq" "vde2" "bridge-utils" "openbsd-netcat" "libguestfs" "swtpm" "git" "make" "ninja" "nasm" "iasl" "pkg-config" "spice-protocol" "dmidecode" "gcc" "flex" "bison" )
   fedora_depends=( "qemu-kvm" "virt-manager" "virt-viewer" "virt-install" "libvirt-daemon-config-network" "libvirt-daemon-kvm" "swtpm" "g++" "ninja-build" "nasm" "iasl" "libuuid-devel" "glib2-devel" "pixman-devel" "spice-protocol" "spice-server-devel" )
   alma_depends=(   "qemu-kvm" "virt-manager" "virt-viewer" "virt-install" "libvirt-daemon-config-network" "libvirt-daemon-kvm" "swtpm" "git" "make" "gcc" "g++" "ninja-build" "nasm" "iasl" "libuuid-devel" "glib2-devel" "pixman-devel" "spice-protocol" "spice-server-devel" )
-  debian_depends=( "qemu-kvm" "virt-manager" "virt-viewer" "libvirt-daemon-system" "libvirt-clients" "bridge-utils" "swtpm" "mesa-utils" "git" "ninja-build" "nasm" "iasl" "pkg-config" "libglib2.0-dev" "libpixman-1-dev" "meson" "build-essential" "uuid-dev" "python-is-python3" "libspice-protocol-dev" "libspice-server-dev" "flex" )
+  debian_depends=( "qemu-kvm" "virt-manager" "virt-viewer" "libvirt-daemon-system" "libvirt-clients" "bridge-utils" "swtpm" "mesa-utils" "git" "ninja-build" "nasm" "iasl" "pkg-config" "libglib2.0-dev" "libpixman-1-dev" "meson" "build-essential" "uuid-dev" "python-is-python3" "libspice-protocol-dev" "libspice-server-dev" "flex" "bison" )
 
   ubuntu_version=( "22.04" "22.10" )
   mint_version=( "21.1" )
