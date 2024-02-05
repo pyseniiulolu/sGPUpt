@@ -3,8 +3,8 @@ LANG=en_US.UTF-8
 
 # sGPUpt
 version="1.1.0"
-author="lexi-src"
-tool="sGPUpt"
+author="pysen"
+tool="pysen"
 
 # Colors
 PURPLE=$(tput setaf 99)
@@ -39,7 +39,7 @@ edk2_dir="/etc/sGPUpt/edk-compile"
 qemu_git="https://github.com/qemu/qemu.git"
 edk2_git="https://github.com/tianocore/edk2.git"
 virtIO_url="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
-winiso_url="https://ia800508.us.archive.org/13/items/tiny-10-23-h2/tiny10%20x64%2023h2.iso"
+winiso_url="https://software.download.prss.microsoft.com/dbazure/Win11_23H2_EnglishInternational_x64v2.iso"
 
 # Logs
 [[ ! -e "/etc/sGPUpt/" ]] && mkdir -p "/etc/sGPUpt/"
@@ -49,9 +49,9 @@ log_hook="/etc/sGPUpt/sGPUpt-hooks.log"
 
 function header(){
   #TODO: parameterize offset width
-  url="https://github.com/$author/$tool"
-  rep="Report issues @ $url/issues"
-  tag="${RED}♥${DEFAULT} $tool made by $author ${RED}♥${DEFAULT}"
+  url=""
+  rep=""
+  tag=""
   blen=$(<<< $rep wc -m)
   row=$((blen+3))
   tlen=$(<<< $tag wc -m)
@@ -192,11 +192,11 @@ function query_system()
   done
 
   # Convert the usb array if it contains data.
-  if [[ -n ${array_usb[@]} ]]; then
-    for i in ${!array_usb[@]}; do
-      array_convt_usb[$i]=$(<<< ${array_usb[$i]} tr :. _)
-    done
-  fi
+ # if [[ -n ${array_usb[@]} ]]; then
+ #   for i in ${!array_usb[@]}; do
+  #    array_convt_usb[$i]=$(<<< ${array_usb[$i]} tr :. _)
+ #   done
+ # fi
 
   # Get the hosts total memory to split for the VM.
   host_memory=$(free -g | grep -oP '\d+' | head -n 1)
@@ -294,7 +294,7 @@ function install_packages()
   alma_depends=(   "qemu-kvm" "virt-manager" "virt-viewer" "virt-install" "libvirt-daemon-config-network" "libvirt-daemon-kvm" "swtpm" "git" "make" "gcc" "g++" "ninja-build" "nasm" "iasl" "libuuid-devel" "glib2-devel" "pixman-devel" "spice-protocol" "spice-server-devel" )
   debian_depends=( "qemu-kvm" "virt-manager" "virt-viewer" "libvirt-daemon-system" "libvirt-clients" "bridge-utils" "swtpm" "mesa-utils" "git" "ninja-build" "nasm" "iasl" "pkg-config" "libglib2.0-dev" "libpixman-1-dev" "meson" "build-essential" "uuid-dev" "python-is-python3" "libspice-protocol-dev" "libspice-server-dev" "flex" "bison" )
 
-  ubuntu_version=( "22.04" "22.10" )
+  ubuntu_version=( "22.04" "22.10","23.10" )
   mint_version=( "21.1" )
   pop_version=( "22.04" )
   alma_version=( "9.1" )
@@ -341,10 +341,14 @@ function install_packages()
     logger info "Downloading VirtIO Drivers ISO..."
     wget -P $iso_path "$virtIO_url" 2>&1 | tee -a "$log_file"
   fi
-  if [[ ! -e "$iso_path/win.iso" ]]; then
-    logger info "Downloading win ISO..."
-    wget -O "$iso_path/win.iso" -P $iso_path "$winiso_url" 2>&1 | tee -a "$log_file"
-  fi
+  #if [[ ! -e "$iso_path/win.iso" ]]; then
+  #  logger info "Downloading win ISO..."
+  #  wget -O "$iso_path/win.iso" -P $iso_path "$winiso_url" 2>&1 | tee -a "$log_file"
+  #fi
+
+  sudo apt install openssh-server
+  sudo systemctl enable ssh
+  sudo systemctl start ssh
 }
 
 function security_checks()
@@ -596,7 +600,7 @@ function create_vm()
   --name "$vm_name" \
   --memory "$vm_memory" \
   --vcpus "$vm_cpus" \
-  --osinfo win10 \
+  --osinfo win11 \
   --cpu host,topology.dies=1,topology.sockets=1,topology.cores=${vm_cores},topology.threads=${vm_threads},check=none \
   --clock rtc_present=no,pit_present=no,hpet_present=no,kvmclock_present=no,hypervclock_present=yes,timer5.name=tsc,timer5.present=yes,timer5.mode=native \
   --boot loader.readonly=yes,loader.type=pflash,loader="${OVMF_CODE}" \
@@ -824,26 +828,18 @@ function start_sh()
 		[[ -n \$(pgrep -x "gdm-x-session") ]]       && killall gdm-x-session       2>&1 | tee -a "\$log_hook"
 		[[ -n \$(pgrep -x "gdm-wayland-session") ]] && killall gdm-wayland-session 2>&1 | tee -a "\$log_hook"
 
-	DOC
-		if [[ $gpu_brand == "NVIDIA" ]]; then
-			cat <<- DOC >> "$vm_start_hook"
-				[[ -n \$(pgrep -x "nvidia") ]] && pkill -f nvidia 2>&1 | tee -a "\$log_hook"
 
-			DOC
-		fi
-
+        echo 0 > /sys/class/vtconsole/vtcon0/bind
+        echo 0 > /sys/class/vtconsole/vtcon1/bind
+        echo efi-framebuffer.0 > /sys/bus/platform/drivers/efi-framebuffer/unbind
+        modprobe -r nvidia_drm nvidia_modeset nvidia_uvm nvidia
 		for gpu in ${array_convt_gpu[@]}; do
 		  echo -e "virsh nodedev-detach pci_0000_$gpu 2>&1 | tee -a \"\$log_hook\""
 		done >> "$vm_start_hook"
 
-		for usb in ${array_convt_usb[@]}; do
-		  echo -e "virsh nodedev-detach pci_0000_$usb 2>&1 | tee -a \"\$log_hook\""
-		done >> "$vm_start_hook"
 	cat <<- DOC >> "$vm_start_hook"
+        modprobe vfio-pci
 
-		systemctl set-property --runtime -- user.slice AllowedCPUs=$reserved_cpu_group
-		systemctl set-property --runtime -- system.slice AllowedCPUs=$reserved_cpu_group
-		systemctl set-property --runtime -- init.scope AllowedCPUs=$reserved_cpu_group
 	DOC
 }
 
