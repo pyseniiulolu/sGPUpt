@@ -610,7 +610,7 @@ function create_vm()
   --memballoon model=none \
   --tpm model=tpm-crb,type=emulator,version=2.0 \
   --qemu-commandline="-cpu" \
-  --qemu-commandline="host,hv_time,hv_relaxed,hv_vapic,hv_spinlocks=8191,hv_vpindex,hv_reset,hv_synic,hv_stimer,hv_frequencies,hv_reenlightenment,hv_tlbflush,hv_ipi,kvm=off,kvm-hint-dedicated=on,-hypervisor,$cpu_features" \
+  --qemu-commandline="host,-aes,hv_time,hv_relaxed,hv_vapic,hv_spinlocks=8191,hv_vpindex,hv_reset,hv_synic,hv_stimer,hv_frequencies,hv_reenlightenment,hv_tlbflush,hv_ipi,kvm=off,kvm-hint-dedicated=on,-hypervisor,$cpu_features" \
   >> "$log_file" 2>&1
 
   # If virt-install fails throw an error
