@@ -39,6 +39,7 @@ edk2_dir="/etc/sGPUpt/edk-compile"
 qemu_git="https://github.com/qemu/qemu.git"
 edk2_git="https://github.com/tianocore/edk2.git"
 virtIO_url="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
+winiso_url="https://ia800508.us.archive.org/13/items/tiny-10-23-h2/tiny10%20x64%2023h2.iso"
 
 # Logs
 [[ ! -e "/etc/sGPUpt/" ]] && mkdir -p "/etc/sGPUpt/"
@@ -340,6 +341,10 @@ function install_packages()
     logger info "Downloading VirtIO Drivers ISO..."
     wget -P $iso_path "$virtIO_url" 2>&1 | tee -a "$log_file"
   fi
+  if [[ ! -e "$iso_path/win.iso" ]]; then
+    logger info "Downloading win ISO..."
+    wget -O "$iso_path/win.iso" -P $iso_path "$winiso_url" 2>&1 | tee -a "$log_file"
+  fi
 }
 
 function security_checks()
@@ -599,7 +604,7 @@ function create_vm()
   --boot emulator="${qemu_emulator}" \
   --boot cdrom,hd,menu=on \
   --feature vmport.state=off \
-  --disk device=cdrom,path="" \
+  --disk device=cdrom,path="$iso_path/win.iso" \
   --disk device=cdrom,path="${iso_path}/virtio-win.iso" \
   --import \
   --network type=network,source="${network_name}",model=virtio \
