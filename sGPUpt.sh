@@ -24,16 +24,16 @@ network_name="default"
 network_path="/tmp/${network_name}.xml"
 
 # Storage
-disk_path="/etc/sGPUpt/disks"
-iso_path="/etc/sGPUpt/iso"
+disk_path="/etc/pysen/disks"
+iso_path="/etc/pysen/iso"
 #disk_path=/home/$SUDO_USER/Documents/qemu-images
 #iso_path=/home/$SUDO_USER/Documents/iso
 
 # Compile
 qemu_branch="v8.0.0"
-qemu_dir="/etc/sGPUpt/qemu-emulator"
+qemu_dir="/etc/pysen/qemu-emulator"
 edk2_branch="edk2-stable202211"
-edk2_dir="/etc/sGPUpt/edk-compile"
+edk2_dir="/etc/pysen/edk-compile"
 
 # Urls
 qemu_git="https://github.com/qemu/qemu.git"
@@ -42,9 +42,9 @@ virtIO_url="https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/sta
 winiso_url="https://software.download.prss.microsoft.com/dbazure/Win11_23H2_EnglishInternational_x64v2.iso"
 
 # Logs
-[[ ! -e "/etc/sGPUpt/" ]] && mkdir -p "/etc/sGPUpt/"
-log_file="/etc/sGPUpt/sGPUpt.log"
-log_hook="/etc/sGPUpt/sGPUpt-hooks.log"
+[[ ! -e "/etc/pysen/" ]] && mkdir -p "/etc/pysen/"
+log_file="/etc/pysen/sGPUpt.log"
+log_hook="/etc/pysen/sGPUpt-hooks.log"
 > $log_file
 
 function header(){
@@ -181,10 +181,7 @@ function query_system()
   [[ ${#array_gpu[@]} -ne $gpu_components ]] && logger error "GPU is not isolated for passthrough!"
 
   # If we didn't find any passable USB then give a choice to continue.
-  if [[ ${#array_usb[@]} -eq 0 ]]; then
-    read -p "$(logger choice "Couldn't find any passable USB, continue without USB? [Y/n]: ")" CHOICE
-    [[ "$CHOICE" != @("Y"|"y") ]] && exit 1
-  fi
+
 
   # Convert the gpu array.
   for i in ${!array_gpu[@]}; do
@@ -193,10 +190,10 @@ function query_system()
 
   # Convert the usb array if it contains data.
  # if [[ -n ${array_usb[@]} ]]; then
- #   for i in ${!array_usb[@]}; do
+  #  for i in ${!array_usb[@]}; do
   #    array_convt_usb[$i]=$(<<< ${array_usb[$i]} tr :. _)
- #   done
- # fi
+  #  done
+  #fi
 
   # Get the hosts total memory to split for the VM.
   host_memory=$(free -g | grep -oP '\d+' | head -n 1)
@@ -271,9 +268,6 @@ function find_pcie_devices()
       if [[ $device_output =~ ("VGA"|"Audio"|"USB"|"Serial") && $device_output =~ ("NVIDIA"|"AMD/ATI"|"Arc") ]]; then
         IncrementGPU "${g##*/}" "$device_id" "$device_output"
         continue
-      elif [[ $device_output =~ ("USB controller") ]]; then
-        IncrementUSB "${g##*/}" "$device_id" "$device_output"
-        continue
       fi
 
       IncrementMisc "${g##*/}" "$device_output"
@@ -292,7 +286,7 @@ function install_packages()
   arch_depends=(   "qemu-base" "virt-manager" "virt-viewer" "dnsmasq" "vde2" "bridge-utils" "openbsd-netcat" "libguestfs" "swtpm" "git" "make" "ninja" "nasm" "iasl" "pkg-config" "spice-protocol" "dmidecode" "gcc" "flex" "bison" )
   fedora_depends=( "qemu-kvm" "virt-manager" "virt-viewer" "virt-install" "libvirt-daemon-config-network" "libvirt-daemon-kvm" "swtpm" "g++" "ninja-build" "nasm" "iasl" "libuuid-devel" "glib2-devel" "pixman-devel" "spice-protocol" "spice-server-devel" )
   alma_depends=(   "qemu-kvm" "virt-manager" "virt-viewer" "virt-install" "libvirt-daemon-config-network" "libvirt-daemon-kvm" "swtpm" "git" "make" "gcc" "g++" "ninja-build" "nasm" "iasl" "libuuid-devel" "glib2-devel" "pixman-devel" "spice-protocol" "spice-server-devel" )
-  debian_depends=( "qemu-kvm" "virt-manager" "virt-viewer" "libvirt-daemon-system" "libvirt-clients" "bridge-utils" "swtpm" "mesa-utils" "git" "ninja-build" "nasm" "iasl" "pkg-config" "libglib2.0-dev" "libpixman-1-dev" "meson" "build-essential" "uuid-dev" "python-is-python3" "libspice-protocol-dev" "libspice-server-dev" "flex" "bison" )
+  debian_depends=( "qemu-kvm" "virt-manager" "virt-viewer" "libvirt-daemon-system" "libvirt-clients" "bridge-utils" "swtpm" "mesa-utils" "git" "ninja-build" "nasm" "iasl" "pkg-config" "libglib2.0-dev" "libpixman-1-dev" "meson" "build-essential" "uuid-dev" "python-is-python3" "libspice-protocol-dev" "libspice-server-dev" "flex" "bison" "libusb-1.0-0-dev" )
 
   ubuntu_version=( "22.04" "22.10","23.10" )
   mint_version=( "21.1" )
@@ -382,8 +376,8 @@ function security_checks()
 function compile_checks()
 {
   # Create a file for checking if the compiled qemu was previously installed.
-  if [[ ! -e /etc/sGPUpt/install-status.txt ]]; then
-    touch /etc/sGPUpt/install-status.txt
+  if [[ ! -e /etc/pysen/install-status.txt ]]; then
+    touch /etc/pysen/install-status.txt
   fi
 
   # Compile if file doesn't exist.
@@ -396,12 +390,12 @@ function compile_checks()
   fi
 
   # Symlink.
-  if [[ ! -e "/etc/sGPUpt/OVMF_CODE.fd" ]]; then
-    ln -s "${edk2_dir}/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd" /etc/sGPUpt/OVMF_CODE.fd | tee -a "$log_file"
+  if [[ ! -e "/etc/pysen/OVMF_CODE.fd" ]]; then
+    ln -s "${edk2_dir}/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd" /etc/pysen/OVMF_CODE.fd | tee -a "$log_file"
   fi
 
-  if [[ ! -e "/etc/sGPUpt/qemu-system-x86_64" ]]; then
-    ln -s "${qemu_dir}/build/qemu-system-x86_64" /etc/sGPUpt/qemu-system-x86_64 | tee -a "$log_file"
+  if [[ ! -e "/etc/pysen/qemu-system-x86_64" ]]; then
+    ln -s "${qemu_dir}/build/qemu-system-x86_64" /etc/pysen/qemu-system-x86_64 | tee -a "$log_file"
   fi
 }
 
@@ -447,9 +441,9 @@ function qemu_compile()
   sed -i "s/KVMKVMKVM\\\\0\\\\0\\\\0/$cpu_brand/"                                           "${qemu_dir}/target/i386/kvm/kvm.c"
   sed -i "s/\"bochs\"/\"$qemu_motherboard_bios_vendor\"/"                                   "${qemu_dir}/block/bochs.c"
 
-  ./configure --enable-spice --disable-werror 2>&1 | tee -a "$log_file"
+  ../qemu/configure --target-list=x86_64-softmmu,x86_64-linux-user --disable-werror --prefix=/usr 2>&1 | tee -a "$log_file"
   make -j$(nproc) 2>&1 | tee -a "$log_file"
-
+  sudo make install
   chown -R $SUDO_USER:$SUDO_USER "$qemu_dir"
 
   if [[ ! -e "${qemu_dir}/build/qemu-system-x86_64" ]]; then
@@ -574,10 +568,10 @@ function handle_virt_net()
 
 function create_vm()
 {
-  OVMF_CODE="/etc/sGPUpt/OVMF_CODE.fd"
+  OVMF_CODE="/etc/pysen/OVMF_CODE.fd"
   OVMF_VARS="/var/lib/libvirt/qemu/nvram/${vm_name}_VARS.fd"
-  qemu_emulator="/etc/sGPUpt/qemu-system-x86_64"
-  qemu_version=$(/etc/sGPUpt/qemu-system-x86_64 --version | head -n 1 | awk '{print $4}')
+  qemu_emulator="/usr/local/bin/qemu-system-x86_64"
+  qemu_version=$(/usr/local/bin/qemu-system-x86_64 --version | head -n 1 | awk '{print $4}')
   cp "${edk2_dir}/Build/OvmfX64/RELEASE_GCC5/FV/OVMF_VARS.fd" "$OVMF_VARS"
 
   case $cpu_type in
@@ -615,7 +609,6 @@ function create_vm()
   --sound none \
   --console none \
   --graphics none \
-  --controller type=usb,model=$vm_usb_model \
   --memballoon model=none \
   --tpm model=tpm-crb,type=emulator,version=2.0 \
   --qemu-commandline="-cpu" \
@@ -786,7 +779,7 @@ function vfio_hooks()
 {
   mkdir -p "/etc/libvirt/hooks/qemu.d/" | tee -a "$log_file"
   touch    "/etc/libvirt/hooks/qemu"    | tee -a "$log_file"
-  chmod +x -R "/etc/libvirt/hooks"      | tee -a "$log_file"
+  chmod +x  "/etc/libvirt/hooks"      | tee -a "$log_file"
 
   # https://github.com/PassthroughPOST/VFIO-Tools/blob/master/libvirt_hooks/qemu
 	cat <<- 'DOC' >> /etc/libvirt/hooks/qemu
@@ -816,6 +809,7 @@ function start_sh()
   if [[ ! -e "$vm_base_hook/prepare/begin/" ]]; then
     mkdir -p "$vm_base_hook/prepare/begin/"         | tee -a "$log_file"
     touch    "$vm_base_hook/prepare/begin/start.sh" | tee -a "$log_file"
+    chmod +x "$vm_base_hook/prepare/begin/start.sh" | tee -a "$log_file"
   fi
 
   vm_start_hook="/etc/libvirt/hooks/qemu.d/${vm_name}/prepare/begin/start.sh"
@@ -836,7 +830,9 @@ function start_sh()
 		for gpu in ${array_convt_gpu[@]}; do
 		  echo -e "virsh nodedev-detach pci_0000_$gpu 2>&1 | tee -a \"\$log_hook\""
 		done >> "$vm_start_hook"
-
+        for usb in ${array_convt_usb[@]}; do
+		  echo -e "virsh nodedev-detach pci_0000_$usb 2>&1 | tee -a \"\$log_hook\""
+		done >> "$vm_start_hook"
 	cat <<- DOC >> "$vm_start_hook"
         modprobe vfio-pci
 
@@ -849,6 +845,7 @@ function stop_sh()
   if [[ ! -e "$vm_base_hook/release/" ]]; then
     mkdir -p "$vm_base_hook/release/end/"        | tee -a "$log_file"
     touch    "$vm_base_hook/release/end/stop.sh" | tee -a "$log_file"
+    chmod +x "$vm_base_hook/release/end/stop.sh" | tee -a "$log_file"
   fi
 
   vm_stop_hook="/etc/libvirt/hooks/qemu.d/${vm_name}/release/end/stop.sh"
